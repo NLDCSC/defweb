@@ -36,8 +36,7 @@ def main():
 
         result = call(['/usr/bin/openssl', 'req', '-new', '-x509', '-keyout', cert_path,
                        '-out', cert_path, '-days', '365', '-nodes',
-                       '-subj', '/C=NL/ST=Utrecht/L=Huis ter '
-                                'Heide/O=DefCERT/OU=Assessments/CN=assessment.defcert.nl', '-passout',
+                       '-subj', '/C=NL/ST=DefWeb/L=DefWeb/O=DefWeb/OU=DefWeb/CN=DefWeb.nl', '-passout',
                        'pass:DefWeb'], shell=False, stdout=DEVNULL, stderr=DEVNULL, cwd=code_root)
 
         if result == 0:
