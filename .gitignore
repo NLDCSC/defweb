@@ -133,4 +133,4 @@ dmypy.json
 # Pycharm shit
 .idea
 
-!/defweb/server.pem
+/defweb/server.pem
