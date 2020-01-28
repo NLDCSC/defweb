@@ -6,6 +6,7 @@ import pwd
 import sys
 import time
 import urllib.parse
+from collections import namedtuple
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler
 from stat import filemode
@@ -15,6 +16,9 @@ __version__ = _version_from_git_describe()
 
 
 class DefWebServer(SimpleHTTPRequestHandler):
+
+    protocols = namedtuple('DefWebServerProtocols', ('HTTP', 'HTTPS'))('http://', 'https://')
+
     server_version = 'DefWebServer/' + __version__
     directory = None
 

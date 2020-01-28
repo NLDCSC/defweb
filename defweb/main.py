@@ -10,7 +10,7 @@ from defweb.webserver import DefWebServer
 def main():
     code_root = os.path.dirname(os.path.realpath(__file__))
 
-    proto = 'http://'
+    proto = DefWebServer.protocols.HTTP
 
     parser = argparse.ArgumentParser()
 
@@ -73,7 +73,7 @@ def main():
                            'pass:DefWeb'], shell=False, stdout=DEVNULL, stderr=DEVNULL, cwd=code_root)
 
         if result == 0:
-            proto = 'https://'
+            proto = DefWebServer.protocols.HTTPS
             httpd.socket = ssl.wrap_socket(httpd.socket, certfile=cert_path, server_side=True)
         else:
             print('[-] Cannot create certificate... skipping https...')
