@@ -24,8 +24,8 @@ setup(
     long_description_content_type="text/markdown",
     include_package_data=True,
     classifiers=[
-        "License :: OSI Approved :: GNU General Public License v3.0",
-        "Operating System :: Linux",
+        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+        "Operating System :: POSIX :: Linux",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.5"
