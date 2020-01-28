@@ -1,13 +1,17 @@
+import grp
 import html
 import io
 import os
+import pwd
 import sys
 import time
 import urllib.parse
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler
+from stat import filemode
+from defweb import _version_from_git_describe
 
-__version__ = '0.0.1'
+__version__ = _version_from_git_describe()
 
 
 class DefWebServer(SimpleHTTPRequestHandler):
@@ -18,13 +22,34 @@ class DefWebServer(SimpleHTTPRequestHandler):
         super().__init__(request, client_address, server)
 
     def version_string(self):
+        """
+        Method to return the version string
+
+        :return: Server version string
+        :rtype: str
+        """
         return self.server_version
 
     @staticmethod
     def set_server_name(servername):
+        """
+        Method to set the server name to a given string
+
+        :param servername: Server name to announce in http headers
+        :type servername: str
+        """
         DefWebServer.server_version = servername
 
-    def get_file_attr(self, path):
+    @staticmethod
+    def get_file_attr(path):
+        """
+        Method to retrieve file attributes from a given path.
+
+        :param path: Path to scan
+        :type path: str
+        :return: Dictionary with file attributes
+        :rtype: dict
+        """
 
         ret_val = {}
 
@@ -32,10 +57,13 @@ class DefWebServer(SimpleHTTPRequestHandler):
             ret_val[entry.name] = {
                 'uid': entry.stat().st_uid,
                 'gid': entry.stat().st_gid,
+                'username': pwd.getpwuid(int(entry.stat().st_uid)).pw_name,
+                'groupname': grp.getgrgid(int(entry.stat().st_gid)).gr_name,
                 'size': entry.stat().st_size,
                 'Access time': time.ctime(entry.stat().st_atime),
                 'Modified time': time.ctime(entry.stat().st_mtime),
-                'Change time': time.ctime(entry.stat().st_ctime)
+                'Change time': time.ctime(entry.stat().st_ctime),
+                'permissions': filemode(entry.stat().st_mode)
             }
 
         return ret_val
@@ -47,19 +75,22 @@ class DefWebServer(SimpleHTTPRequestHandler):
         Return value is either a file object, or None (indicating an
         error).  In either case, the headers are sent, making the
         interface the same as for send_head().
+
+        :param path: Path to directory for listing
+        :type path: str
+        :return: Directory listing in html
+        :rtype: io.BytesIO
         """
         if self.directory is not None:
             path = self.directory
 
         try:
-            # list = os.listdir(path)
             dirlist = self.get_file_attr(path=path)
         except OSError:
             self.send_error(
                 HTTPStatus.NOT_FOUND,
                 "No permission to list directory")
             return None
-        # list.sort(key=lambda a: a.lower())
         r = []
         try:
             displaypath = urllib.parse.unquote(self.path,
@@ -77,11 +108,19 @@ class DefWebServer(SimpleHTTPRequestHandler):
                  'tr:nth-child(even) {background-color: #eee;}'
                  'tr:nth-child(odd) {background-color: #fff;}</style>')
         r.append('<meta http-equiv="Content-Type" '
-                 'content="text/html; charset=%s">' % enc)
-        r.append('<title>%s</title>\n</head>' % title)
-        r.append('<body>\n<h1>%s</h1>' % title)
-        r.append('<table style="width:50%">')
-        r.append('<tr><th>Filename</th><th>Size</th><th>Owner</th></tr>')
+                 'content="text/html; charset={}">'.format(enc))
+        r.append('<title>{}</title>\n</head>'.format(title))
+        r.append('<body>')
+        r.append('<h1>{}</h1>'.format(title))
+        r.append('<table style="width:60%">')
+        r.append('<tr>'
+                 '<th>Permissions</th>'
+                 '<th>Owner</th>'
+                 '<th>Group</th>'
+                 '<th>Size</th>'
+                 '<th>Modified</th>'
+                 '<th style="width:50%">Filename</th>'
+                 '</tr>')
         # r.append('<hr>\n<ul>')
         for name in sorted(dirlist.keys()):
             fullname = os.path.join(path, name)
@@ -93,17 +132,12 @@ class DefWebServer(SimpleHTTPRequestHandler):
             if os.path.islink(fullname):
                 displayname = name + "@"
                 # Note: a link to a directory displays with @ and links with /
-            # r.append('<li><a href="%s">%s</a></li>'
-            #          % (urllib.parse.quote(linkname,
-            #                                errors='surrogatepass'),
-            #             html.escape(displayname)))
-            r.append('<tr><td><a href="%s">%s</a></td><td>Smith</td><td>50</td></tr>'
-                     % (urllib.parse.quote(linkname,
-                                           errors='surrogatepass'),
-                        html.escape(displayname)))
+            r.append('<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><a href="{}">{}</a></td></tr>'
+                     .format(dirlist[name]['permissions'], dirlist[name]['username'], dirlist[name]['groupname'],
+                             dirlist[name]['size'], dirlist[name]['Modified time'],
+                             urllib.parse.quote(linkname, errors='surrogatepass'), html.escape(displayname)))
 
-        # r.append('</ul>\n</table>\n<hr>\n</body>\n</html>\n')
-        r.append('</table>\n<hr>\n</body>\n</html>\n')
+        r.append('</table>\n<br><hr>\n<h5>{}</h5>\n</body>\n</html>\n'.format(self.server_version))
         encoded = '\n'.join(r).encode(enc, 'surrogateescape')
         f = io.BytesIO()
         f.write(encoded)

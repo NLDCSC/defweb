@@ -30,7 +30,7 @@ def _version_from_git_describe():
 
     """
     if not os.path.isdir(os.path.join(os.path.dirname(_PKG_DIR), '.git')):  # noqa: E501
-        raise ValueError('not in scapy git repo')
+        raise ValueError('not in git repo')
 
     process = subprocess.Popen(['git', 'describe', '--always'],
                                cwd=_PKG_DIR,
