@@ -19,7 +19,6 @@ class DefWebServer(SimpleHTTPRequestHandler):
     protocols = namedtuple('DefWebServerProtocols', ('HTTP', 'HTTPS'))('http://', 'https://')
 
     server_version = 'DefWebServer/' + __version__
-    directory = None
 
     def __init__(self, request, client_address, server):
         super().__init__(request, client_address, server)
@@ -84,8 +83,6 @@ class DefWebServer(SimpleHTTPRequestHandler):
         :return: Directory listing in html
         :rtype: io.BytesIO
         """
-        if self.directory is not None:
-            path = self.directory
 
         try:
             dirlist = self.get_file_attr(path=path)
@@ -154,16 +151,17 @@ class DefWebServer(SimpleHTTPRequestHandler):
     def do_PUT(self):
         """Save a file following a HTTP PUT request"""
 
-        if self.directory is not None:
-            filename = os.path.join(self.directory, os.path.basename(self.path))
-        else:
-            filename = os.path.basename(self.path)
+        filename = os.path.basename(self.path)
 
         file_length = int(self.headers['Content-Length'])
-        with open(filename, 'wb') as output_file:
-            output_file.write(self.rfile.read(file_length))
-        self.send_response(201, 'Created')
-        reply_body = 'Saved "{}"\n'.format(filename)
+        try:
+            with open(filename, 'wb') as output_file:
+                output_file.write(self.rfile.read(file_length))
+            self.send_response(201, 'Created')
+            reply_body = 'Saved "{}"\n'.format(filename)
+        except PermissionError as err:
+            self.send_response(403, 'Permission Denied')
+            reply_body = 'Could not save "{}" to disk. Error: {}\n'.format(filename, err)
         self.send_header("Content-Length", str(len(reply_body)))
         self.end_headers()
         self.wfile.write(reply_body.encode('utf-8'))

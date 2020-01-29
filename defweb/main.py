@@ -53,7 +53,7 @@ def main():
 
     if args.directory:
         if os.path.exists(args.directory):
-            WebHandler.directory = args.directory
+            os.chdir(args.directory)
         else:
             raise FileNotFoundError('Path: {} cannot be found!!!'.format(args.directory))
 
