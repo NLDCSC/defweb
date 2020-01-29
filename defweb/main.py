@@ -6,6 +6,8 @@ from subprocess import call, DEVNULL
 
 from defweb.webserver import DefWebServer
 
+__version__ = '0.1.3'
+
 
 def main():
     code_root = os.path.dirname(os.path.realpath(__file__))
@@ -14,16 +16,21 @@ def main():
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-s', '--secure', action='store_true', help='use https instead of http')
-    parser.add_argument('-r', '--recreate_cert', action='store_true', help='re-create the ssl certificate')
-    parser.add_argument('-p', dest='port', type=int, help='port to use; defaults to 8000')
     parser.add_argument('-b', dest='bind', help='ip to bind to; defaults to 127.0.0.1')
     parser.add_argument('-d', dest='directory', metavar='[ DIR ]', default=None,
                         help='path to use as document root')
     parser.add_argument('-i', dest='impersonate', metavar='[ SERVER NAME ]', default=None,
                         help='server name to send in headers')
+    parser.add_argument('-p', dest='port', type=int, help='port to use; defaults to 8000')
+    parser.add_argument('-r', '--recreate_cert', action='store_true', help='re-create the ssl certificate')
+    parser.add_argument('-s', '--secure', action='store_true', help='use https instead of http')
+    parser.add_argument('-v', '--version', action='store_true', help='show version and then exit')
 
     args = parser.parse_args()
+
+    if args.version:
+        print(__version__)
+        exit(0)
 
     if args.port:
         if args.port <= 1024:
@@ -56,7 +63,8 @@ def main():
     try:
         httpd = HTTPServer((host, port), WebHandler)
     except OSError:
-        print('\n[-] Error trying to bind to port {}, is there another service running on that port?\n'.format(args.port))
+        print('\n[-] Error trying to bind to port {}, is there another service '
+              'running on that port?\n'.format(args.port))
         return
 
     if args.secure:
