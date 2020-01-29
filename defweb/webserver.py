@@ -10,9 +10,8 @@ from collections import namedtuple
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler
 from stat import filemode
-from defweb import _version_from_git_describe
 
-__version__ = _version_from_git_describe()
+__version__ = '0.1.2'
 
 
 class DefWebServer(SimpleHTTPRequestHandler):
