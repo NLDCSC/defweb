@@ -11,7 +11,7 @@ from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler
 from stat import filemode
 
-__version__ = '0.1.3'
+__version__ = '0.1.4'
 
 
 class DefWebServer(SimpleHTTPRequestHandler):

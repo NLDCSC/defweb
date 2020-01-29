@@ -6,7 +6,7 @@ from subprocess import call, DEVNULL
 
 from defweb.webserver import DefWebServer
 
-__version__ = '0.1.3'
+__version__ = '0.1.4'
 
 
 def main():
