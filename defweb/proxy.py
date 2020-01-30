@@ -17,6 +17,7 @@ ERROR_MAP_4 = {90: 'request granted', 91: 'request rejected or failed', 92: 'req
                                                                             'cannot connect to identd on the client',
                93: 'request rejected because the client program and identdreport different user-ids'}
 
+# TODO incorporate username and password authentication
 USERNAME = 'secret'
 PASSWORD = 'secret'
 
@@ -67,6 +68,12 @@ class SocksTCPHandler(StreamRequestHandler):
 
         if self.socks_version == 4:
 
+            # +----+-----+---------+----------+----------+
+            # |VER | CMD | DSTPORT |   DSTIP  |    ID    |
+            # +----+-----+---------+----------+----------+
+            # | 1  | 1   |    1    |    4     | variable |
+            # +----+-----+---------+----------+----------+
+
             cmd = nmethods
 
             port = struct.unpack("!H", self.connection.recv(2))[0]
@@ -85,9 +92,11 @@ class SocksTCPHandler(StreamRequestHandler):
                 elif cmd == 2:  # BIND
                     print("[-] Not supported command: {}".format(COMMAND_MAP[cmd]))
                     self.server.close_request(self.request)
+                    return
                 else:
                     print("[-] Unknown command received!!")
                     self.server.close_request(self.request)
+                    return
 
                 addr = struct.unpack("!I", socket.inet_aton(bind_address[0]))[0]
                 port = bind_address[1]
@@ -113,7 +122,7 @@ class SocksTCPHandler(StreamRequestHandler):
             # Get available methods
             methods = self.get_available_methods(nmethods)
 
-            # incorporate GSSAPI as authentication method!!
+            # TODO incorporate GSSAPI as authentication method!!
             if 2 in methods.keys():
                 chosen_method = 2
             else:
@@ -187,12 +196,15 @@ class SocksTCPHandler(StreamRequestHandler):
                 elif cmd == 2:  # BIND
                     print("[-] Not supported command: {}".format(COMMAND_MAP[cmd]))
                     self.server.close_request(self.request)
+                    return
                 elif cmd == 3:  # UDP ASSOCIATE
                     print("[-] Not supported command: {}".format(COMMAND_MAP[cmd]))
                     self.server.close_request(self.request)
+                    return
                 else:
                     print("[-] Unknown command received!!")
                     self.server.close_request(self.request)
+                    return
 
                 addr = struct.unpack("!I", socket.inet_aton(bind_address[0]))[0]
                 port = bind_address[1]
@@ -284,7 +296,7 @@ class SocksTCPHandler(StreamRequestHandler):
             return True
 
         # failure, status != 0
-        print('[+] Authentication failed, wrong username and password!!')
+        print('[!] Authentication failed, wrong username and password!!')
         response = struct.pack("!BB", version, 0xFF)
         self.connection.sendall(response)
         self.server.close_request(self.request)
