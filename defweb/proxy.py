@@ -281,6 +281,7 @@ class SocksTCPHandler(StreamRequestHandler):
             self.server.close_request(self.request)
 
     def exchange_loop(self, client, remote):
+
         while True:
 
             # wait until client or remote is available for read
