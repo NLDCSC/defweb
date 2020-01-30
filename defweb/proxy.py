@@ -8,7 +8,7 @@ from socketserver import ThreadingMixIn, TCPServer, StreamRequestHandler
 __version__ = '0.0.2'
 
 SOCKS_VERSION_MAP = {4: 'SOCKSv4', 5: 'SOCKSv5', 67: 'HTTP'}
-METHOD_MAP = {0: 'NO AUTH', 1: 'GSSAPI', 2: 'USERNAME & PASSWORD'}
+METHOD_MAP = {0: 'NO AUTH', 1: 'GSSAPI', 2: 'USERNAME & PASSWORD', 255: 'NO ACCEPTABLE METHODS'}
 COMMAND_MAP = {1: 'CONNECT', 2: 'BIND', 3: 'UDP ASSOCIATE'}
 ERROR_MAP_5 = {0: 'succeeded', 1: 'general SOCKS server failure', 2: 'connection not allowed by ruleset',
                3: 'Network unreachable', 4: 'Host unreachable', 5: 'Connection refused', 6: 'TTL expired',
@@ -53,7 +53,7 @@ class SocksTCPHandler(StreamRequestHandler):
         # +----+----------+----------+
         # |VER | NMETHODS |  METHODS |
         # +----+----------+----------+
-        # | 1  |      1   | 1 to 255 |
+        # | 1  |    1     | 1 to 255 |
         # +----+----------+----------+
         if len(header) == struct.calcsize('BB'):
             version, nmethods = struct.unpack("!BB", header)
@@ -71,7 +71,7 @@ class SocksTCPHandler(StreamRequestHandler):
             # +----+-----+---------+----------+----------+
             # |VER | CMD | DSTPORT |   DSTIP  |    ID    |
             # +----+-----+---------+----------+----------+
-            # | 1  | 1   |    1    |    4     | variable |
+            # | 1  | 1   |    2    |    4     | variable |
             # +----+-----+---------+----------+----------+
 
             cmd = nmethods
@@ -101,6 +101,11 @@ class SocksTCPHandler(StreamRequestHandler):
                 addr = struct.unpack("!I", socket.inet_aton(bind_address[0]))[0]
                 port = bind_address[1]
                 # print('[D] addr: {}; port: {}'.format(addr, port))
+                # +----+-----+---------+----------+
+                # |VN  | REP | DSTPORT |   DSTIP  |
+                # +----+-----+---------+----------+
+                # | 1  | 1   |    2    |    4     |
+                # +----+-----+---------+----------+
                 reply = struct.pack("!BBHI", 0, 90, port, addr)
 
             except Exception as err:
@@ -123,10 +128,13 @@ class SocksTCPHandler(StreamRequestHandler):
             methods = self.get_available_methods(nmethods)
 
             # TODO incorporate GSSAPI as authentication method!!
+            # TODO add option to force authentication
             if 2 in methods.keys():
                 chosen_method = 2
-            else:
+            elif 0 in methods.keys():
                 chosen_method = 0
+            else:
+                chosen_method = 255
 
             print('[+] Client supports "{}" as method, accepting and sending servers choice'.format(
                 METHOD_MAP[chosen_method]))
@@ -196,7 +204,7 @@ class SocksTCPHandler(StreamRequestHandler):
 
                 # print('[D] address: {}; domain_length: {}'.format(address, domain_length))
 
-            elif atype == 4:  # IPv6
+            else:  # atype == 4:  # IPv6
                 # Depends on host support
                 address = socket.inet_ntop(socket.AF_INET6, self.connection.recv(16))
 
@@ -228,9 +236,9 @@ class SocksTCPHandler(StreamRequestHandler):
                 port = bind_address[1]
                 # print('[D] addr: {}; port: {}'.format(addr, port))
                 # +----+-----+-------+------+----------+----------+
-                # |VER | CMD | RSV   | ATYP | BND.ADDR | BND.PORT |
+                # |VER | REP | RSV   | ATYP | BND.ADDR | BND.PORT |
                 # +----+-----+-------+------+----------+----------+
-                # | 1  | 1   | X'00' | 1    | Variable |    2     |
+                # | 1  |  1  | X'00' |  1   | Variable |    2     |
                 # +----+-----+-------+------+----------+----------+
                 # Where:
                 #
