@@ -73,7 +73,10 @@ def main():
         else:
             port = args.port
     else:
-        port = 8000
+        if os.geteuid() == 0 and args.secure:
+            port = 443
+        else:
+            port = 8000
 
     if args.bind:
         host = args.bind
@@ -84,9 +87,12 @@ def main():
 
     if args.directory:
         if os.path.exists(args.directory):
+            WebHandler.root_dir = args.directory
             os.chdir(args.directory)
         else:
             raise FileNotFoundError('Path: {} cannot be found!!!'.format(args.directory))
+    else:
+        WebHandler.root_dir = os.getcwd()
 
     if args.impersonate:
         WebHandler.server_version = args.impersonate
@@ -95,7 +101,7 @@ def main():
         httpd = HTTPServer((host, port), WebHandler)
     except OSError:
         print('\n[-] Error trying to bind to port {}, is there another service '
-              'running on that port?\n'.format(args.port))
+              'running on that port?\n'.format(port))
         return
 
     if args.secure:

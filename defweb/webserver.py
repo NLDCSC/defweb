@@ -9,6 +9,7 @@ import urllib.parse
 from collections import namedtuple
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler
+from pathlib import Path
 from stat import filemode
 from defweb.version import get_version_from_file
 
@@ -20,6 +21,8 @@ class DefWebServer(SimpleHTTPRequestHandler):
     protocols = namedtuple('DefWebServerProtocols', ('HTTP', 'HTTPS'))('http://', 'https://')
 
     server_version = 'DefWebServer/' + __version__
+
+    root_dir = None
 
     def __init__(self, request, client_address, server):
         super().__init__(request, client_address, server)
@@ -55,6 +58,23 @@ class DefWebServer(SimpleHTTPRequestHandler):
         """
 
         ret_val = {}
+
+        # create entry for 1 level up
+        # path[:-1] removes trailing '/' in order to facilitate comparing to DefWebServer.root_dir
+        if path[:-1] != DefWebServer.root_dir:
+            parent = Path(path)
+
+            ret_val['..'] = {
+                'uid': parent.stat().st_uid,
+                'gid': parent.stat().st_gid,
+                'username': pwd.getpwuid(int(parent.stat().st_uid)).pw_name,
+                'groupname': grp.getgrgid(int(parent.stat().st_gid)).gr_name,
+                'size': parent.stat().st_size,
+                'Access time': time.ctime(parent.stat().st_atime),
+                'Modified time': time.ctime(parent.stat().st_mtime),
+                'Change time': time.ctime(parent.stat().st_ctime),
+                'permissions': filemode(parent.stat().st_mode)
+            }
 
         for entry in os.scandir(path=path):
             ret_val[entry.name] = {
@@ -128,8 +148,9 @@ class DefWebServer(SimpleHTTPRequestHandler):
             displayname = linkname = name
             # Append / for directories or @ for symbolic links
             if os.path.isdir(fullname):
-                displayname = name + "/"
-                linkname = name + "/"
+                if displayname != '..':
+                    displayname = name + "/"
+                    linkname = name + "/"
             if os.path.islink(fullname):
                 displayname = name + "@"
                 # Note: a link to a directory displays with @ and links with /
