@@ -2,11 +2,43 @@ import argparse
 import os
 import ssl
 from http.server import HTTPServer
-from subprocess import call, DEVNULL
+from subprocess import CompletedProcess, PIPE, run
 
+from defweb.version import get_version_from_file
 from defweb.webserver import DefWebServer
 
-__version__ = '0.1.4'
+__version__ = get_version_from_file()
+
+env = os.environ
+
+cert_root = os.path.join(env['HOME'], '.defweb')
+
+cert_path = os.path.join(cert_root, 'server.pem')
+key_path = os.path.join(cert_root, 'server_key.pem')
+
+
+def create_cert():
+
+    # check if .defweb folder exists
+    if not os.path.exists(cert_root):
+        os.makedirs(cert_root)
+
+    try:
+        result = run(['/usr/bin/openssl', 'req', '-new', '-x509', '-keyout', key_path,
+                      '-out', cert_path, '-days', '365', '-nodes',
+                      '-subj', '/C=NL/ST=DefWeb/L=DefWeb/O=DefWeb/OU=DefWeb/CN=DefWeb.nl', '-passout',
+                      'pass:DefWeb'], shell=False, stdout=PIPE, stderr=PIPE, cwd=cert_root)
+    except FileNotFoundError as err:
+        result = '{}'.format(err)
+
+    if isinstance(result, CompletedProcess):
+        if result.returncode == 0:
+            result = 0
+        elif result.returncode == 1:
+            error = result.stderr.decode('utf-8').split('\n')[-3]
+            result = 'Error generating ssl certificate; {}'.format(error)
+
+    return result
 
 
 def main():
@@ -69,21 +101,16 @@ def main():
 
     if args.secure:
 
-        cert_path = os.path.join(code_root, 'server.pem')
-
         result = 0
 
         if not os.path.exists(cert_path) or args.recreate_cert:
-
-            result = call(['/usr/bin/openssl', 'req', '-new', '-x509', '-keyout', cert_path,
-                           '-out', cert_path, '-days', '365', '-nodes',
-                           '-subj', '/C=NL/ST=DefWeb/L=DefWeb/O=DefWeb/OU=DefWeb/CN=DefWeb.nl', '-passout',
-                           'pass:DefWeb'], shell=False, stdout=DEVNULL, stderr=DEVNULL, cwd=code_root)
+            result = create_cert()
 
         if result == 0:
             proto = DefWebServer.protocols.HTTPS
-            httpd.socket = ssl.wrap_socket(httpd.socket, certfile=cert_path, server_side=True)
+            httpd.socket = ssl.wrap_socket(httpd.socket, keyfile=key_path, certfile=cert_path, server_side=True)
         else:
+            print('[-] Certificate creation produced an error: {}'.format(result))
             print('[-] Cannot create certificate... skipping https...')
 
     try:
