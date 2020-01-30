@@ -5,7 +5,7 @@ import struct
 from socket import error as SocketError
 from socketserver import ThreadingMixIn, TCPServer, StreamRequestHandler
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 SOCKS_VERSION_MAP = {4: 'SOCKSv4', 5: 'SOCKSv5', 67: 'HTTP'}
 METHOD_MAP = {0: 'NO AUTH', 1: 'GSSAPI', 2: 'USERNAME & PASSWORD'}
@@ -165,6 +165,7 @@ class SocksTCPHandler(StreamRequestHandler):
                 # print('[D] address: {}; domain_length: {}'.format(address, domain_length))
 
             elif atype == 4:  # IPv6
+                # TODO incorporate IPv6 handling....
 
                 print("[-] Not supported atype: {}".format('IPv6'))
                 reply = self.generate_failed_reply_5(int(atype), 5)
@@ -220,6 +221,7 @@ class SocksTCPHandler(StreamRequestHandler):
             self.server.close_request(self.request)
 
         elif self.socks_version == 67:
+            # TODO setup HTTP proxy
 
             print('[!] Not implemented!!')
 
