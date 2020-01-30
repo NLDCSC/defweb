@@ -42,7 +42,6 @@ def create_cert():
 
 
 def main():
-    code_root = os.path.dirname(os.path.realpath(__file__))
 
     proto = DefWebServer.protocols.HTTP
 
