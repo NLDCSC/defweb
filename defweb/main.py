@@ -4,6 +4,7 @@ import ssl
 from http.server import HTTPServer
 from subprocess import CompletedProcess, PIPE, run
 
+from defweb.proxy import DefWebProxy
 from defweb.version import get_version_from_file
 from defweb.webserver import DefWebServer
 
@@ -42,6 +43,7 @@ def create_cert():
 
 
 def main():
+    print('[+] Defweb version: {}'.format(__version__))
 
     proto = DefWebServer.protocols.HTTP
 
@@ -53,6 +55,7 @@ def main():
     parser.add_argument('-i', dest='impersonate', metavar='[ SERVER NAME ]', default=None,
                         help='server name to send in headers')
     parser.add_argument('-p', dest='port', type=int, help='port to use; defaults to 8000')
+    parser.add_argument('--proxy', action='store_true', help='start proxy for SOCKS4, SOCKS5 & HTTP')
     parser.add_argument('-r', '--recreate_cert', action='store_true', help='re-create the ssl certificate')
     parser.add_argument('-s', '--secure', action='store_true', help='use https instead of http')
     parser.add_argument('-v', '--version', action='store_true', help='show version and then exit')
@@ -83,49 +86,72 @@ def main():
     else:
         host = '127.0.0.1'
 
-    WebHandler = DefWebServer
+    if not args.proxy:
+        # setup webserver
+        WebHandler = DefWebServer
 
-    if args.directory:
-        if os.path.exists(args.directory):
-            os.chdir(args.directory)
+        if args.directory:
+            if os.path.exists(args.directory):
+                os.chdir(args.directory)
+                WebHandler.root_dir = os.getcwd()
+            else:
+                raise FileNotFoundError('Path: {} cannot be found!!!'.format(args.directory))
+        else:
             WebHandler.root_dir = os.getcwd()
-        else:
-            raise FileNotFoundError('Path: {} cannot be found!!!'.format(args.directory))
+
+        if args.impersonate:
+            WebHandler.server_version = args.impersonate
+
+        try:
+            httpd = HTTPServer((host, port), WebHandler)
+        except OSError:
+            print('\n[-] Error trying to bind to port {}, is there another service '
+                  'running on that port?\n'.format(port))
+            return
+
+        if args.secure:
+
+            result = 0
+
+            if not os.path.exists(cert_path) or args.recreate_cert:
+                result = create_cert()
+
+            if result == 0:
+                proto = DefWebServer.protocols.HTTPS
+                httpd.socket = ssl.wrap_socket(httpd.socket, keyfile=key_path, certfile=cert_path, server_side=True)
+            else:
+                print('[-] Certificate creation produced an error: {}'.format(result))
+                print('[-] Cannot create certificate... skipping https...')
+
+        try:
+            print('[+] Running DefWebServer: {}'.format(WebHandler.server_version))
+            print('[+] Starting webserver on: {}{}:{}'.format(proto, host, port))
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print('[+] User cancelled execution, closing down server...', end=" ", flush=True)
+            httpd.server_close()
+            print('Server closed, exiting!')
     else:
-        WebHandler.root_dir = os.getcwd()
+        # setup proxy
 
-    if args.impersonate:
-        WebHandler.server_version = args.impersonate
+        print('[+] Running DefWebProxy: {}'.format(DefWebProxy.server_version))
+        proxy_server = DefWebProxy(socketaddress=(host, port)).init_proxy()
 
-    try:
-        httpd = HTTPServer((host, port), WebHandler)
-    except OSError:
-        print('\n[-] Error trying to bind to port {}, is there another service '
-              'running on that port?\n'.format(port))
-        return
-
-    if args.secure:
-
-        result = 0
-
-        if not os.path.exists(cert_path) or args.recreate_cert:
-            result = create_cert()
-
-        if result == 0:
-            proto = DefWebServer.protocols.HTTPS
-            httpd.socket = ssl.wrap_socket(httpd.socket, keyfile=key_path, certfile=cert_path, server_side=True)
-        else:
-            print('[-] Certificate creation produced an error: {}'.format(result))
-            print('[-] Cannot create certificate... skipping https...')
-
-    try:
-        print('[+] Running: {}'.format(WebHandler.server_version))
-        print('[+] Starting webserver on: {}{}:{}'.format(proto, host, port))
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print('[+] User cancelled execution, closing down server...', end=" ", flush=True)
-        httpd.server_close()
-        print('Server closed, exiting!')
+        if proxy_server is not None:
+            try:
+                ip, host = proxy_server.server_address
+                print('[+] Starting WebDefProxy on {}:{}'.format(ip, host))
+                proxy_server.serve_forever()
+            # handle CTRL+C
+            except KeyboardInterrupt:
+                print("[+] Exiting...")
+                proxy_server.shutdown()
+                proxy_server.server_close()
+            except Exception as err:
+                print("[!] " + str(err))
+            finally:
+                proxy_server.shutdown()
+                proxy_server.server_close()
 
 
 if __name__ == '__main__':

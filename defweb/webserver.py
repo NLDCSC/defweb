@@ -11,9 +11,8 @@ from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
 from stat import filemode
-from defweb.version import get_version_from_file
 
-__version__ = get_version_from_file()
+__version__ = '1.0.0'
 
 
 class DefWebServer(SimpleHTTPRequestHandler):
@@ -142,7 +141,6 @@ class DefWebServer(SimpleHTTPRequestHandler):
                  '<th>Modified</th>'
                  '<th style="width:50%">Filename</th>'
                  '</tr>')
-        # r.append('<hr>\n<ul>')
         for name in sorted(dirlist.keys()):
             fullname = os.path.join(path, name)
             displayname = linkname = name
