@@ -1,6 +1,7 @@
 import argparse
 import os
 import ssl
+import sys
 from http.server import HTTPServer
 from subprocess import CompletedProcess, PIPE, run
 
@@ -148,6 +149,7 @@ def main():
             print('[+] User cancelled execution, closing down server...', end=" ", flush=True)
             httpd.server_close()
             print('Server closed, exiting!')
+            sys.exit(0)
     else:
         # setup proxy
 
@@ -162,13 +164,12 @@ def main():
             # handle CTRL+C
             except KeyboardInterrupt:
                 print("[+] Exiting...")
-                proxy_server.shutdown()
-                proxy_server.server_close()
             except Exception as err:
                 print("[!] " + str(err))
             finally:
                 proxy_server.shutdown()
                 proxy_server.server_close()
+                sys.exit(0)
 
 
 if __name__ == '__main__':
