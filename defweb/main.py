@@ -56,6 +56,8 @@ def main():
                         help='server name to send in headers')
     parser.add_argument('-p', dest='port', type=int, help='port to use; defaults to 8000')
     parser.add_argument('--proxy', action='store_true', help='start proxy for SOCKS4, SOCKS5 & HTTP')
+    parser.add_argument('--key', dest='key', metavar='[ KEY ]', help='key file to use for webserver')
+    parser.add_argument('--cert', dest='cert', metavar='[ CERT ]', help='certificate file to use for webserver')
     parser.add_argument('-r', '--recreate_cert', action='store_true', help='re-create the ssl certificate')
     parser.add_argument('-s', '--secure', action='store_true', help='use https instead of http')
     parser.add_argument('-v', '--version', action='store_true', help='show version and then exit')
@@ -111,10 +113,25 @@ def main():
 
         if args.secure:
 
+            if args.cert:
+                if os.path.exists(args.cert):
+                    global cert_path
+                    cert_path = args.cert
+                else:
+                    raise FileNotFoundError('Certificate file not found!')
+
+            if args.key:
+                if os.path.exists(args.key):
+                    global key_path
+                    key_path = args.key
+                else:
+                    raise FileNotFoundError('Certificate file not found!')
+
             result = 0
 
-            if not os.path.exists(cert_path) or args.recreate_cert:
-                result = create_cert()
+            if not args.cert:
+                if not os.path.exists(cert_path) or args.recreate_cert:
+                    result = create_cert()
 
             if result == 0:
                 proto = DefWebServer.protocols.HTTPS
