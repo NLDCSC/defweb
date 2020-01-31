@@ -17,29 +17,27 @@ ERROR_MAP_4 = {90: 'request granted', 91: 'request rejected or failed', 92: 'req
                                                                             'cannot connect to identd on the client',
                93: 'request rejected because the client program and identdreport different user-ids'}
 
-# TODO incorporate username and password authentication
-USERNAME = 'secret'
-PASSWORD = 'secret'
-
 
 class ThreadingTCPServer(ThreadingMixIn, TCPServer):
     pass
 
 
 class SocksTCPHandler(StreamRequestHandler):
-    global USERNAME
-    global PASSWORD
 
-    SOCKS_VERSION = None
+    enfore_auth = False
 
-    username = USERNAME
-    password = PASSWORD
+    username = None
+    password = None
 
     def __init__(self, request, client_address, server):
 
         super().__init__(request, client_address, server)
 
         self.socks_version = 4
+
+        self.enfore_auth = SocksTCPHandler.enfore_auth
+        self.username = SocksTCPHandler.username
+        self.password = SocksTCPHandler.password
 
     def handle(self):
 
@@ -128,13 +126,23 @@ class SocksTCPHandler(StreamRequestHandler):
             methods = self.get_available_methods(nmethods)
 
             # TODO incorporate GSSAPI as authentication method!!
-            # TODO add option to force authentication
-            if 2 in methods.keys():
-                chosen_method = 2
-            elif 0 in methods.keys():
-                chosen_method = 0
+            if self.enfore_auth:
+                if 2 not in methods.keys():
+                    # cannot validate creds closing connection
+                    print('[-] Client not supporting {} authentication, server is configured to force authentication. '
+                          'Closing connection'.format(METHOD_MAP[2]))
+                    self.connection.sendall(struct.pack("!BB", self.socks_version, 255))
+                    self.server.close_request(self.request)
+                    return
+                else:
+                    chosen_method = 2
             else:
-                chosen_method = 255
+                if 2 in methods.keys():
+                    chosen_method = 2
+                elif 0 in methods.keys():
+                    chosen_method = 0
+                else:
+                    chosen_method = 255
 
             print('[+] Client supports "{}" as method, accepting and sending servers choice'.format(
                 METHOD_MAP[chosen_method]))
@@ -364,7 +372,7 @@ class DefWebProxy(object):
 
     server_version = 'DefWebProxy/' + __version__
 
-    def __init__(self, socketaddress):
+    def __init__(self, socketaddress, username=None, password=None, enforce_auth=False):
 
         if not isinstance(socketaddress, tuple):
             raise TypeError('Argument socketaddress should be a tuple, not a {}'.format(type(socketaddress)))
@@ -374,9 +382,15 @@ class DefWebProxy(object):
 
         self.proxy_server = None
 
+        self.SocksTCPHandler = SocksTCPHandler
+
+        self.SocksTCPHandler.enfore_auth = enforce_auth
+        self.SocksTCPHandler.username = username
+        self.SocksTCPHandler.password = password
+
     def init_proxy(self):
         try:
-            self.proxy_server = ThreadingTCPServer((self.hostname, int(self.port)), SocksTCPHandler)
+            self.proxy_server = ThreadingTCPServer((self.hostname, int(self.port)), self.SocksTCPHandler)
             print('[+] Initializing...')
         except OSError as err:
             print("[!] " + str(err))

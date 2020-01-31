@@ -14,20 +14,23 @@ pip install defweb
 
 ```bash
 usage: __main__.py [-h] [-b BIND] [-d [DIR]] [-i [SERVER NAME]] [-p PORT]
-                   [--proxy] [--key [KEY]] [--cert [CERT]] [-r] [-s] [-v]
+                   [--proxy] [--key [KEY]] [--cert [CERT]] [-r] [-s]
+                   [-u [USER:PASSWORD]] [-v]
 
 optional arguments:
-  -h, --help           show this help message and exit
-  -b BIND              ip to bind to; defaults to 127.0.0.1
-  -d [ DIR ]           path to use as document root
-  -i [ SERVER NAME ]   server name to send in headers
-  -p PORT              port to use; defaults to 8000
-  --proxy              start proxy for SOCKS4, SOCKS5 & HTTP
-  --key [ KEY ]        key file to use for webserver
-  --cert [ CERT ]      certificate file to use for webserver
-  -r, --recreate_cert  re-create the ssl certificate
-  -s, --secure         use https instead of http
-  -v, --version        show version and then exit
+  -h, --help            show this help message and exit
+  -b BIND               ip to bind to; defaults to 127.0.0.1
+  -d [ DIR ]            path to use as document root
+  -i [ SERVER NAME ]    server name to send in headers
+  -p PORT               port to use; defaults to 8000
+  --proxy               start proxy for SOCKS4, SOCKS5 & HTTP
+  --key [ KEY ]         key file to use for webserver
+  --cert [ CERT ]       certificate file to use for webserver
+  -r, --recreate_cert   re-create the ssl certificate
+  -s, --secure          use https instead of http
+  -u [ USER:PASSWORD ]  user credentials to use when authenticating to the
+                        proxy server
+  -v, --version         show version and then exit
 ```
 ##### Usage
 

@@ -61,6 +61,8 @@ def main():
     parser.add_argument('--cert', dest='cert', metavar='[ CERT ]', help='certificate file to use for webserver')
     parser.add_argument('-r', '--recreate_cert', action='store_true', help='re-create the ssl certificate')
     parser.add_argument('-s', '--secure', action='store_true', help='use https instead of http')
+    parser.add_argument('-u', dest='credentials', metavar='[ USER:PASSWORD ]',
+                        help='user credentials to use when authenticating to the proxy server')
     parser.add_argument('-v', '--version', action='store_true', help='show version and then exit')
 
     args = parser.parse_args()
@@ -154,7 +156,13 @@ def main():
         # setup proxy
 
         print('[+] Running DefWebProxy: {}'.format(DefWebProxy.server_version))
-        proxy_server = DefWebProxy(socketaddress=(host, port)).init_proxy()
+
+        if args.credentials:
+            username, password = args.credentials.split(':')
+            proxy_server = DefWebProxy(socketaddress=(host, port), username=username, password=password,
+                                       enforce_auth=True).init_proxy()
+        else:
+            proxy_server = DefWebProxy(socketaddress=(host, port)).init_proxy()
 
         if proxy_server is not None:
             try:
