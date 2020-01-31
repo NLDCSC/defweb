@@ -194,7 +194,7 @@ class SocksTCPHandler(StreamRequestHandler):
             if atype == 1:  # IPv4
 
                 address = socket.inet_ntoa(self.connection.recv(4))
-                # print('[D] address: {}'.format(address))
+                print('[D] address: {}'.format(address))
 
             elif atype == 3:  # domain
 
@@ -202,7 +202,7 @@ class SocksTCPHandler(StreamRequestHandler):
 
                 address = self.connection.recv(domain_length).decode("utf-8")
 
-                # print('[D] address: {}; domain_length: {}'.format(address, domain_length))
+                print('[D] address: {}; domain_length: {}'.format(address, domain_length))
 
             else:  # atype == 4:  # IPv6
                 # Depends on host support
