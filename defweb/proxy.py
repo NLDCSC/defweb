@@ -5,7 +5,7 @@ import struct
 from socket import error as SocketError
 from socketserver import ThreadingMixIn, TCPServer, StreamRequestHandler
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 SOCKS_VERSION_MAP = {4: 'SOCKSv4', 5: 'SOCKSv5', 67: 'HTTP'}
 METHOD_MAP = {0: 'NO AUTH', 1: 'GSSAPI', 2: 'USERNAME & PASSWORD', 255: 'NO ACCEPTABLE METHODS'}
