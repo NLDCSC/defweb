@@ -1,6 +1,7 @@
 import grp
 import html
 import io
+import logging
 import os
 import pwd
 import sys
@@ -12,7 +13,9 @@ from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
 from stat import filemode
 
-__version__ = '1.0.0'
+__version__ = '1.0.1'
+
+logger = logging.getLogger(__name__)
 
 
 class DefWebServer(SimpleHTTPRequestHandler):
@@ -185,3 +188,9 @@ class DefWebServer(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(reply_body)))
         self.end_headers()
         self.wfile.write(reply_body.encode('utf-8'))
+
+    def log_message(self, format, *args):
+        """
+        Log messages via python logging lib instead of std.err
+        """
+        logger.info('{} {}'.format(self.address_string(), format%args))

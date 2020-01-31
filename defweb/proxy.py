@@ -1,11 +1,14 @@
 import errno
+import logging
 import select
 import socket
 import struct
 from socket import error as SocketError
 from socketserver import ThreadingMixIn, TCPServer, StreamRequestHandler
 
-__version__ = '0.0.3'
+__version__ = '0.0.4'
+
+logger = logging.getLogger(__name__)
 
 SOCKS_VERSION_MAP = {4: 'SOCKSv4', 5: 'SOCKSv5', 67: 'HTTP'}
 METHOD_MAP = {0: 'NO AUTH', 1: 'GSSAPI', 2: 'USERNAME & PASSWORD', 255: 'NO ACCEPTABLE METHODS'}
@@ -43,7 +46,7 @@ class SocksTCPHandler(StreamRequestHandler):
 
         client_ip, client_port = self.client_address
 
-        print('[+] Connection accepted from {}:{}'.format(client_ip, client_port))
+        logger.info('[+] Connection accepted from {}:{}'.format(client_ip, client_port))
 
         # Assemble header and parse version and nmethods
         header = self.connection.recv(2)
@@ -59,7 +62,7 @@ class SocksTCPHandler(StreamRequestHandler):
             self.server.close_request(self.request)
             return
 
-        print('[+] Client requesting {} proxy'.format(SOCKS_VERSION_MAP[version]))
+        logger.info('[+] Client requesting {} proxy'.format(SOCKS_VERSION_MAP[version]))
 
         # build check to differentiate between SOCKSv4, SOCKSv5 and HTTP
         self.socks_version = int(version)
@@ -78,7 +81,7 @@ class SocksTCPHandler(StreamRequestHandler):
 
             address = socket.inet_ntoa(self.connection.recv(4))
 
-            # print('[D] version: {}; cmd: {}; port: {}; address: {}'.format(version, cmd, port, address))
+            logger.debug('[D] version: {}; cmd: {}; port: {}; address: {}'.format(version, cmd, port, address))
 
             # server reply
             try:
@@ -86,19 +89,19 @@ class SocksTCPHandler(StreamRequestHandler):
                     remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     remote.connect((address, port))
                     bind_address = remote.getsockname()
-                    # print('[D] bind_address: {}'.format(bind_address))
+                    logger.debug('[D] bind_address: {}'.format(bind_address))
                 elif cmd == 2:  # BIND
-                    print("[-] Not supported command: {}".format(COMMAND_MAP[cmd]))
+                    logger.error("[-] Not supported command: {}".format(COMMAND_MAP[cmd]))
                     self.server.close_request(self.request)
                     return
                 else:
-                    print("[-] Unknown command received!!")
+                    logger.error("[-] Unknown command received!!")
                     self.server.close_request(self.request)
                     return
 
                 addr = struct.unpack("!I", socket.inet_aton(bind_address[0]))[0]
                 port = bind_address[1]
-                # print('[D] addr: {}; port: {}'.format(addr, port))
+                logger.debug('[D] addr: {}; port: {}'.format(addr, port))
                 # +----+-----+---------+----------+
                 # |VN  | REP | DSTPORT |   DSTIP  |
                 # +----+-----+---------+----------+
@@ -107,7 +110,7 @@ class SocksTCPHandler(StreamRequestHandler):
                 reply = struct.pack("!BBHI", 0, 90, port, addr)
 
             except Exception as err:
-                print('[-] Server reply produced an error: {}'.format(err))
+                logger.error('[-] Server reply produced an error: {}'.format(err))
                 # return Connection refused error
                 reply = self.generate_failed_reply_4(91)
 
@@ -115,7 +118,7 @@ class SocksTCPHandler(StreamRequestHandler):
 
             # Establish data exchange
             if reply[1] == 90 and cmd == 1:
-                print('[+] Forwarding requests!')
+                logger.info('[+] Forwarding requests!')
                 self.exchange_loop(self.connection, remote)
 
             self.server.close_request(self.request)
@@ -129,8 +132,8 @@ class SocksTCPHandler(StreamRequestHandler):
             if self.enfore_auth:
                 if 2 not in methods.keys():
                     # cannot validate creds closing connection
-                    print('[-] Client not supporting {} authentication, server is configured to force authentication. '
-                          'Closing connection'.format(METHOD_MAP[2]))
+                    logger.error('[-] Client not supporting {} authentication, server is configured to '
+                                 'force authentication. Closing connection'.format(METHOD_MAP[2]))
                     self.connection.sendall(struct.pack("!BB", self.socks_version, 255))
                     self.server.close_request(self.request)
                     return
@@ -144,7 +147,7 @@ class SocksTCPHandler(StreamRequestHandler):
                 else:
                     chosen_method = 255
 
-            print('[+] Client supports "{}" as method, accepting and sending servers choice'.format(
+            logger.info('[+] Client supports "{}" as method, accepting and sending servers choice'.format(
                 METHOD_MAP[chosen_method]))
 
             # Send server choice as welcome message
@@ -197,12 +200,12 @@ class SocksTCPHandler(StreamRequestHandler):
                 self.server.close_request(self.request)
                 return
 
-            # print('[D] version: {}; cmd: {}; atype: {}'.format(version, cmd, atype))
+            logger.debug('[D] version: {}; cmd: {}; atype: {}'.format(version, cmd, atype))
 
             if atype == 1:  # IPv4
 
                 address = socket.inet_ntoa(self.connection.recv(4))
-                print('[D] address: {}'.format(address))
+                logger.debug('[D] address: {}'.format(address))
 
             elif atype == 3:  # domain
 
@@ -210,7 +213,7 @@ class SocksTCPHandler(StreamRequestHandler):
 
                 address = self.connection.recv(domain_length).decode("utf-8")
 
-                print('[D] address: {}; domain_length: {}'.format(address, domain_length))
+                logger.debug('[D] address: {}; domain_length: {}'.format(address, domain_length))
 
             else:  # atype == 4:  # IPv6
                 # Depends on host support
@@ -218,7 +221,8 @@ class SocksTCPHandler(StreamRequestHandler):
 
             port = struct.unpack('!H', self.rfile.read(2))[0]
 
-            # print('[D] address: {}'.format(port))
+            logger.debug('[D] port: {}'.format(port))
+
 
             # server reply
             try:
@@ -226,23 +230,23 @@ class SocksTCPHandler(StreamRequestHandler):
                     remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     remote.connect((address, port))
                     bind_address = remote.getsockname()
-                    # print('[D] bind_address: {}'.format(bind_address))
+                    logger.debug('[D] bind_address: {}'.format(bind_address))
                 elif cmd == 2:  # BIND
-                    print("[-] Not supported command: {}".format(COMMAND_MAP[cmd]))
+                    logger.error("[-] Not supported command: {}".format(COMMAND_MAP[cmd]))
                     self.server.close_request(self.request)
                     return
                 elif cmd == 3:  # UDP ASSOCIATE
-                    print("[-] Not supported command: {}".format(COMMAND_MAP[cmd]))
+                    logger.error("[-] Not supported command: {}".format(COMMAND_MAP[cmd]))
                     self.server.close_request(self.request)
                     return
                 else:
-                    print("[-] Unknown command received!!")
+                    logger.error("[-] Unknown command received!!")
                     self.server.close_request(self.request)
                     return
 
                 addr = struct.unpack("!I", socket.inet_aton(bind_address[0]))[0]
                 port = bind_address[1]
-                # print('[D] addr: {}; port: {}'.format(addr, port))
+                logger.debug('[D] addr: {}; port: {}'.format(addr, port))
                 # +----+-----+-------+------+----------+----------+
                 # |VER | REP | RSV   | ATYP | BND.ADDR | BND.PORT |
                 # +----+-----+-------+------+----------+----------+
@@ -274,7 +278,7 @@ class SocksTCPHandler(StreamRequestHandler):
                 reply = struct.pack("!BBBBIH", self.socks_version, 0, 0, atype, addr, port)
 
             except Exception as err:
-                print('[-] Server reply produced an error: {}'.format(err))
+                logger.error('[-] Server reply produced an error: {}'.format(err))
                 # return Connection refused error
                 reply = self.generate_failed_reply_5(int(atype), 5)
             try:
@@ -284,7 +288,7 @@ class SocksTCPHandler(StreamRequestHandler):
 
             # Establish data exchange
             if reply[1] == 0 and cmd == 1:
-                print('[+] Forwarding requests!')
+                logger.info('[+] Forwarding requests!')
                 self.exchange_loop(self.connection, remote)
 
             self.server.close_request(self.request)
@@ -292,7 +296,7 @@ class SocksTCPHandler(StreamRequestHandler):
         elif self.socks_version == 67:
             # TODO setup HTTP proxy
 
-            print('[!] Not implemented!!')
+            logger.error('[!] Not implemented!!')
 
             self.server.close_request(self.request)
 
@@ -306,25 +310,25 @@ class SocksTCPHandler(StreamRequestHandler):
             try:
                 if client in r:
                     data = client.recv(4096)
-                    # print('[<=] Received client data bytes: {}'.format(len(data)))
+                    logger.debug('[<=] Received client data bytes: {}'.format(len(data)))
                     if remote.send(data) <= 0:
                         break
             except ConnectionResetError:
-                print('[!] Connection reset.... Might be expected behaviour...')  # Handle connection resets.
+                logger.error('[!] Connection reset.... Might be expected behaviour...', exc_info=True)  # Handle connection resets.
 
             try:
                 if remote in r:
                     data = remote.recv(4096)
-                    # print('[=>] Send remote data bytes: {}'.format(len(data)))
+                    logger.debug('[=>] Send remote data bytes: {}'.format(len(data)))
                     if client.send(data) <= 0:
                         break
             except SocketError as e:
                 if e.errno != errno.ECONNRESET:
                     raise  # Not error we are looking for
                 client.send(data)
-                print('[!] Connection reset.... Might be expected behaviour...')  # Handle connection resets.
+                logger.error('[!] Connection reset.... Might be expected behaviour...', exc_info=True)  # Handle connection resets.
 
-        print('[+] Forwarding requests ended!')
+        logger.info('[+] Forwarding requests ended!')
 
     def get_available_methods(self, n):
         methods = {}
@@ -348,13 +352,13 @@ class SocksTCPHandler(StreamRequestHandler):
 
         if username == self.username and password == self.password:
             # success, status = 0
-            print('[+] Authentication succeeded!!')
+            logger.debug('[D] Authentication succeeded!!')
             response = struct.pack("!BB", version, 0x00)
             self.connection.sendall(response)
             return True
 
         # failure, status != 0
-        print('[!] Authentication failed, wrong username and password!!')
+        logger.error('[!] Authentication failed, wrong username and password!!')
         response = struct.pack("!BB", version, 0xFF)
         self.connection.sendall(response)
         self.server.close_request(self.request)
@@ -391,8 +395,8 @@ class DefWebProxy(object):
     def init_proxy(self):
         try:
             self.proxy_server = ThreadingTCPServer((self.hostname, int(self.port)), self.SocksTCPHandler)
-            print('[+] Initializing...')
+            logger.info('[+] Initializing...')
         except OSError as err:
-            print("[!] " + str(err))
+            logger.error("[!] " + str(err))
 
         return self.proxy_server
