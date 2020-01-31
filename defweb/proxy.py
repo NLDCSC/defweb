@@ -314,7 +314,7 @@ class SocksTCPHandler(StreamRequestHandler):
                     if remote.send(data) <= 0:
                         break
             except ConnectionResetError:
-                logger.error('[!] Connection reset.... Might be expected behaviour...', exc_info=True)  # Handle connection resets.
+                logger.error('[!] Connection reset.... Might be expected behaviour...')  # Handle connection resets.
 
             try:
                 if remote in r:
@@ -326,7 +326,7 @@ class SocksTCPHandler(StreamRequestHandler):
                 if e.errno != errno.ECONNRESET:
                     raise  # Not error we are looking for
                 client.send(data)
-                logger.error('[!] Connection reset.... Might be expected behaviour...', exc_info=True)  # Handle connection resets.
+                logger.error('[!] Connection reset.... Might be expected behaviour...')  # Handle connection resets.
 
         logger.info('[+] Forwarding requests ended!')
 
