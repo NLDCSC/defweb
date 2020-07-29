@@ -1,7 +1,7 @@
 #### DEFWEB
 
 Defweb is an enhancement of the standard http.server of python3.
-Defweb supports https en file uploads.
+Defweb supports https and file uploads.
 
 ##### Installing
 
@@ -44,7 +44,7 @@ Defweb facilitates uploading files to the document root via the PUT command.
 
 Example for \'curl\' and wget (the -k switch (curl) and  
 --no-check-certificate (wget) is needed because Defweb uses self signed
-certificatesby default).
+certificates by default).
 
 ```bash
 curl -X PUT --upload-file file.txt https://localhost:8000 -k
