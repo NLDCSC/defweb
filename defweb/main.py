@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 env = os.environ
 
-cert_root = os.path.join(env['HOME'], '.defweb')
+cert_root = os.path.join(env["HOME"], ".defweb")
 
-cert_path = os.path.join(cert_root, 'server.pem')
-key_path = os.path.join(cert_root, 'server_key.pem')
+cert_path = os.path.join(cert_root, "server.pem")
+key_path = os.path.join(cert_root, "server_key.pem")
 
 
 def create_cert():
@@ -29,19 +29,38 @@ def create_cert():
         os.makedirs(cert_root)
 
     try:
-        result = run(['/usr/bin/openssl', 'req', '-new', '-x509', '-keyout', key_path,
-                      '-out', cert_path, '-days', '365', '-nodes',
-                      '-subj', '/C=NL/ST=DefWeb/L=DefWeb/O=DefWeb/OU=DefWeb/CN=DefWeb.nl', '-passout',
-                      'pass:DefWeb'], shell=False, stdout=PIPE, stderr=PIPE, cwd=cert_root)
+        result = run(
+            [
+                "/usr/bin/openssl",
+                "req",
+                "-new",
+                "-x509",
+                "-keyout",
+                key_path,
+                "-out",
+                cert_path,
+                "-days",
+                "365",
+                "-nodes",
+                "-subj",
+                "/C=NL/ST=DefWeb/L=DefWeb/O=DefWeb/OU=DefWeb/CN=DefWeb.nl",
+                "-passout",
+                "pass:DefWeb",
+            ],
+            shell=False,
+            stdout=PIPE,
+            stderr=PIPE,
+            cwd=cert_root,
+        )
     except FileNotFoundError as err:
-        result = '{}'.format(err)
+        result = f"{err}"
 
     if isinstance(result, CompletedProcess):
         if result.returncode == 0:
             result = 0
         elif result.returncode == 1:
-            error = result.stderr.decode('utf-8').split('\n')[-3]
-            result = 'Error generating ssl certificate; {}'.format(error)
+            error = result.stderr.decode("utf-8").split("\n")[-3]
+            result = f"Error generating ssl certificate; {error}"
 
     return result
 
@@ -52,29 +71,69 @@ def main():
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-b', dest='bind', help='ip to bind to; defaults to 127.0.0.1')
-    parser.add_argument('-d', dest='directory', metavar='[ DIR ]', default=None,
-                        help='path to use as document root')
-    parser.add_argument('-i', dest='impersonate', metavar='[ SERVER NAME ]', default=None,
-                        help='server name to send in headers')
-    parser.add_argument('-p', dest='port', type=int, help='port to use; defaults to 8000')
-    parser.add_argument('--proxy', action='store_true', help='start proxy for SOCKS4, SOCKS5 & HTTP')
-    parser.add_argument('--key', dest='key', metavar='[ KEY ]', help='key file to use for webserver')
-    parser.add_argument('--cert', dest='cert', metavar='[ CERT ]', help='certificate file to use for webserver')
-    parser.add_argument('-r', '--recreate_cert', action='store_true', help='re-create the ssl certificate')
-    parser.add_argument('-s', '--secure', action='store_true', help='use https instead of http')
-    parser.add_argument('-u', dest='credentials', metavar='[ USER:PASSWORD ]',
-                        help='user credentials to use when authenticating to the proxy server')
-    parser.add_argument('-v', '--version', action='store_true', help='show version and then exit')
+    parser.add_argument("-b", dest="bind", help="ip to bind to; defaults to 127.0.0.1")
+    parser.add_argument(
+        "-d",
+        dest="directory",
+        metavar="[ DIR ]",
+        default=None,
+        help="path to use as document root",
+    )
+    parser.add_argument(
+        "-i",
+        dest="impersonate",
+        metavar="[ SERVER NAME ]",
+        default=None,
+        help="server name to send in headers",
+    )
+    parser.add_argument(
+        "-p", dest="port", type=int, help="port to use; defaults to 8000"
+    )
+    parser.add_argument(
+        "--proxy", action="store_true", help="start proxy for SOCKS4, SOCKS5 & HTTP"
+    )
+    parser.add_argument(
+        "--key", dest="key", metavar="[ KEY ]", help="key file to use for webserver"
+    )
+    parser.add_argument(
+        "--cert",
+        dest="cert",
+        metavar="[ CERT ]",
+        help="certificate file to use for webserver",
+    )
+    parser.add_argument(
+        "-r",
+        "--recreate_cert",
+        action="store_true",
+        help="re-create the ssl certificate",
+    )
+    parser.add_argument(
+        "-s", "--secure", action="store_true", help="use https instead of http"
+    )
+    parser.add_argument(
+        "-u",
+        dest="credentials",
+        metavar="[ USER:PASSWORD ]",
+        help="user credentials to use when authenticating to the proxy server",
+    )
+    parser.add_argument(
+        "-v", "--version", action="store_true", help="show version and then exit"
+    )
 
-    parser.add_argument('--log-level', default='INFO', help='DEBUG, INFO (default), WARNING, ERROR, CRITICAL')
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        help="DEBUG, INFO (default), WARNING, ERROR, CRITICAL",
+    )
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=getattr(logging, args.log_level),
-                        format="[%(asctime)s] %(levelname)-8s -> %(message)-50s -> (%(filename)s:%(lineno)s)")
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="[%(asctime)s] %(levelname)-8s -> %(message)-50s -> (%(filename)s:%(lineno)s)",
+    )
 
-    logger.info('[+] Defweb version: {}'.format(__version__))
+    logger.info(f"[+] Defweb version: {__version__}")
 
     if args.version:
         print(__version__)
@@ -83,7 +142,9 @@ def main():
     if args.port:
         if args.port <= 1024:
             if os.geteuid() != 0:
-                logger.info('[+] Need to be root to bind to privileged port; increasing port number with 8000')
+                logger.info(
+                    "[+] Need to be root to bind to privileged port; increasing port number with 8000"
+                )
                 port = args.port + 8000
             else:
                 port = args.port
@@ -98,7 +159,7 @@ def main():
     if args.bind:
         host = args.bind
     else:
-        host = '127.0.0.1'
+        host = "127.0.0.1"
 
     if not args.proxy:
         # setup webserver
@@ -109,7 +170,7 @@ def main():
                 os.chdir(args.directory)
                 WebHandler.root_dir = os.getcwd()
             else:
-                raise FileNotFoundError('Path: {} cannot be found!!!'.format(args.directory))
+                raise FileNotFoundError(f"Path: {args.directory} cannot be found!!!")
         else:
             WebHandler.root_dir = os.getcwd()
 
@@ -119,8 +180,11 @@ def main():
         try:
             httpd = HTTPServer((host, port), WebHandler)
         except OSError:
-            logger.error('\n[-] Error trying to bind to port {}, is there another service '
-                         'running on that port?\n'.format(port), exc_info=True)
+            logger.error(
+                f"\n[-] Error trying to bind to port {port}, is there another service "
+                "running on that port?\n",
+                exc_info=True,
+            )
             return
 
         if args.secure:
@@ -130,14 +194,14 @@ def main():
                     global cert_path
                     cert_path = args.cert
                 else:
-                    raise FileNotFoundError('Certificate file not found!')
+                    raise FileNotFoundError("Certificate file not found!")
 
             if args.key:
                 if os.path.exists(args.key):
                     global key_path
                     key_path = args.key
                 else:
-                    raise FileNotFoundError('Certificate file not found!')
+                    raise FileNotFoundError("Certificate file not found!")
 
             result = 0
 
@@ -147,36 +211,42 @@ def main():
 
             if result == 0:
                 proto = DefWebServer.protocols.HTTPS
-                httpd.socket = ssl.wrap_socket(httpd.socket, keyfile=key_path, certfile=cert_path, server_side=True)
+                httpd.socket = ssl.wrap_socket(
+                    httpd.socket, keyfile=key_path, certfile=cert_path, server_side=True
+                )
             else:
-                logger.error('[-] Certificate creation produced an error: {}'.format(result))
-                logger.error('[-] Cannot create certificate... skipping https...')
+                logger.error(f"[-] Certificate creation produced an error: {result}")
+                logger.error("[-] Cannot create certificate... skipping https...")
 
         try:
-            logger.info('[+] Running DefWebServer: {}'.format(WebHandler.server_version))
-            logger.info('[+] Starting webserver on: {}{}:{}'.format(proto, host, port))
+            logger.info(f"[+] Running DefWebServer: {WebHandler.server_version}")
+            logger.info(f"[+] Starting webserver on: {proto}{host}:{port}")
             httpd.serve_forever()
         except KeyboardInterrupt:
-            logger.info('[+] User cancelled execution, closing down server...')
+            logger.info("[+] User cancelled execution, closing down server...")
             httpd.server_close()
-            logger.info('Server closed, exiting!')
+            logger.info("Server closed, exiting!")
             sys.exit(0)
     else:
         # setup proxy
 
-        logger.info('[+] Running DefWebProxy: {}'.format(DefWebProxy.server_version))
+        logger.info(f"[+] Running DefWebProxy: {DefWebProxy.server_version}")
 
         if args.credentials:
-            username, password = args.credentials.split(':')
-            proxy_server = DefWebProxy(socketaddress=(host, port), username=username, password=password,
-                                       enforce_auth=True).init_proxy()
+            username, password = args.credentials.split(":")
+            proxy_server = DefWebProxy(
+                socketaddress=(host, port),
+                username=username,
+                password=password,
+                enforce_auth=True,
+            ).init_proxy()
         else:
             proxy_server = DefWebProxy(socketaddress=(host, port)).init_proxy()
 
         if proxy_server is not None:
             try:
                 ip, host = proxy_server.server_address
-                logger.info('[+] Starting WebDefProxy on {}:{}'.format(ip, host))
+                logger.info(f"[+] Starting WebDefProxy on {ip}:{host}")
                 proxy_server.serve_forever()
             # handle CTRL+C
             except KeyboardInterrupt:
@@ -189,5 +259,5 @@ def main():
                 sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
