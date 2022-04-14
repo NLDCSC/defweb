@@ -6,7 +6,7 @@ import struct
 from socket import error as SocketError
 from socketserver import ThreadingMixIn, TCPServer, StreamRequestHandler
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 
 SOCKS_VERSION_MAP = {4: "SOCKSv4", 5: "SOCKSv5", 67: "HTTP"}
 METHOD_MAP = {
@@ -441,6 +441,6 @@ class DefWebProxy(object):
             )
             self.logger.info("[+] Initializing...")
         except OSError as err:
-            self.logger.error("[!] " + str(err))
+            self.logger.error(f"[!] {err}")
 
         return self.proxy_server
