@@ -1,3 +1,5 @@
+[![Upload Python Package](https://github.com/NLDCSC/defweb/actions/workflows/package_to_pypi.yaml/badge.svg)](https://github.com/NLDCSC/defweb/actions/workflows/package_to_pypi.yaml)
+
 #### DEFWEB
 
 Defweb is an enhancement of the standard http.server of python3.
