@@ -365,6 +365,8 @@ class SocksTCPHandler(StreamRequestHandler):
             try:
                 if client in r:
                     data = client.recv(4096)
+                    if self.socks_version == 4:
+                        data = data[1:]
                     self.logger.data(
                         f"{self.client_ip}:{self.client_port} "
                         f"=> {self.server_ip}:{self.server_port} "
