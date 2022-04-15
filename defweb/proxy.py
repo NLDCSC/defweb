@@ -6,7 +6,7 @@ import struct
 from socket import error as SocketError
 from socketserver import ThreadingMixIn, TCPServer, StreamRequestHandler
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 
 SOCKS_VERSION_MAP = {4: "SOCKSv4", 5: "SOCKSv5", 67: "HTTP"}
 METHOD_MAP = {

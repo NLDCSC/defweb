@@ -17,7 +17,7 @@ from defweb.utils.logger_class import HelperLogger
 
 logging.setLoggerClass(HelperLogger)
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 # logger = logging.getLogger(__name__)
 
