@@ -13,7 +13,13 @@ from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
 from stat import filemode
 
+from defweb.utils.logger_class import HelperLogger
+
+logging.setLoggerClass(HelperLogger)
+
 __version__ = "1.0.1"
+
+# logger = logging.getLogger(__name__)
 
 
 class DefWebServer(SimpleHTTPRequestHandler):
@@ -27,8 +33,8 @@ class DefWebServer(SimpleHTTPRequestHandler):
     root_dir = None
 
     def __init__(self, request, client_address, server):
-        super().__init__(request, client_address, server)
         self.logger = logging.getLogger(__name__)
+        super().__init__(request, client_address, server)
 
     def version_string(self):
         """
@@ -107,7 +113,6 @@ class DefWebServer(SimpleHTTPRequestHandler):
         :return: Directory listing in html
         :rtype: io.BytesIO
         """
-
         try:
             dirlist = self.get_file_attr(path=path)
         except OSError:
@@ -203,6 +208,6 @@ class DefWebServer(SimpleHTTPRequestHandler):
 
     def log_message(self, format, *args):
         """
-        Log messages via python logging lib instead of std.err
+        Log messages via python logging
         """
-        self.logger.info("{} {}".format(self.address_string(), format % args))
+        self.logger.data(f"{format % args} ", self.address_string())
