@@ -11,6 +11,10 @@ HERE = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(HERE, "README.md")) as fid:
     README = fid.read()
 
+with open(os.path.join(HERE, "requirements.txt")) as fid:
+    REQS = fid.read().splitlines()
+
+
 setup(
     name='defweb',
     version=_version_from_git_describe(),
@@ -36,5 +40,6 @@ setup(
         "console_scripts": [
             "defweb=defweb.__main__:main",
         ]
-    }
+    },
+    install_requires=REQS,
 )

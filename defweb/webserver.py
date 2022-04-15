@@ -15,8 +15,6 @@ from stat import filemode
 
 __version__ = "1.0.1"
 
-logger = logging.getLogger(__name__)
-
 
 class DefWebServer(SimpleHTTPRequestHandler):
 
@@ -30,6 +28,7 @@ class DefWebServer(SimpleHTTPRequestHandler):
 
     def __init__(self, request, client_address, server):
         super().__init__(request, client_address, server)
+        self.logger = logging.getLogger(__name__)
 
     def version_string(self):
         """
@@ -171,7 +170,9 @@ class DefWebServer(SimpleHTTPRequestHandler):
                 )
             )
 
-        r.append(f"</table>\n<br><hr>\n<h5>{self.server_version}</h5>\n</body>\n</html>\n")
+        r.append(
+            f"</table>\n<br><hr>\n<h5>{self.server_version}</h5>\n</body>\n</html>\n"
+        )
         encoded = "\n".join(r).encode(enc, "surrogateescape")
         f = io.BytesIO()
         f.write(encoded)
@@ -204,4 +205,4 @@ class DefWebServer(SimpleHTTPRequestHandler):
         """
         Log messages via python logging lib instead of std.err
         """
-        logger.info("{} {}".format(self.address_string(), format % args))
+        self.logger.info("{} {}".format(self.address_string(), format % args))

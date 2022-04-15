@@ -4,15 +4,17 @@ import os
 import ssl
 import sys
 from http.server import HTTPServer
+from logging.config import dictConfig
 from subprocess import CompletedProcess, PIPE, run
 
 from defweb.proxy import DefWebProxy
+from defweb.utils.logger_class import HelperLogger
 from defweb.version import get_version_from_file
 from defweb.webserver import DefWebServer
 
 __version__ = get_version_from_file()
 
-logger = logging.getLogger(__name__)
+
 
 env = os.environ
 
@@ -128,12 +130,34 @@ def main():
 
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=getattr(logging, args.log_level),
-        format="[%(asctime)s] %(levelname)-8s -> %(message)-50s -> (%(filename)s:%(lineno)s)",
-    )
+    # logging.basicConfig(
+    #     level=getattr(logging, args.log_level),
+    #     format="%(asctime)s %(message)s",
+    # )
 
-    logger.info(f"[+] Defweb version: {__version__}")
+    logDict = {
+        "version": 1,
+        "formatters": {"simpleFormatter": {"format": "%(asctime)s %(message)s"}},
+        "handlers": {
+            "consoleHandler": {
+                "class": "logging.StreamHandler",
+                "stream": "ext://sys.stdout",
+                "formatter": "simpleFormatter",
+            }
+        },
+        "root": {
+            "level": getattr(logging, args.log_level),
+            "handlers": ["consoleHandler"],
+        },
+    }
+
+    dictConfig(logDict)
+
+    logging.setLoggerClass(HelperLogger)
+
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"Defweb version: {__version__}")
 
     if args.version:
         print(__version__)
@@ -143,7 +167,7 @@ def main():
         if args.port <= 1024:
             if os.geteuid() != 0:
                 logger.info(
-                    "[+] Need to be root to bind to privileged port; increasing port number with 8000"
+                    "Need to be root to bind to privileged port; increasing port number with 8000"
                 )
                 port = args.port + 8000
             else:
@@ -181,7 +205,7 @@ def main():
             httpd = HTTPServer((host, port), WebHandler)
         except OSError:
             logger.error(
-                f"\n[-] Error trying to bind to port {port}, is there another service "
+                f"\nError trying to bind to port {port}, is there another service "
                 "running on that port?\n",
                 exc_info=True,
             )
@@ -215,22 +239,22 @@ def main():
                     httpd.socket, keyfile=key_path, certfile=cert_path, server_side=True
                 )
             else:
-                logger.error(f"[-] Certificate creation produced an error: {result}")
-                logger.error("[-] Cannot create certificate... skipping https...")
+                logger.error(f"Certificate creation produced an error: {result}")
+                logger.error("Cannot create certificate... skipping https...")
 
         try:
-            logger.info(f"[+] Running DefWebServer: {WebHandler.server_version}")
-            logger.info(f"[+] Starting webserver on: {proto}{host}:{port}")
+            logger.info(f"Running DefWebServer: {WebHandler.server_version}")
+            logger.info(f"Starting webserver on: {proto}{host}:{port}")
             httpd.serve_forever()
         except KeyboardInterrupt:
-            logger.info("[+] User cancelled execution, closing down server...")
+            logger.info("User cancelled execution, closing down server...")
             httpd.server_close()
             logger.info("Server closed, exiting!")
             sys.exit(0)
     else:
         # setup proxy
 
-        logger.info(f"[+] Running DefWebProxy: {DefWebProxy.server_version}")
+        logger.info(f"Running DefWebProxy: {DefWebProxy.server_version}")
 
         if args.credentials:
             username, password = args.credentials.split(":")
@@ -246,13 +270,13 @@ def main():
         if proxy_server is not None:
             try:
                 ip, host = proxy_server.server_address
-                logger.info(f"[+] Starting WebDefProxy on {ip}:{host}")
+                logger.info(f"Starting WebDefProxy on {ip}:{host}")
                 proxy_server.serve_forever()
             # handle CTRL+C
             except KeyboardInterrupt:
-                logger.info("[+] Exiting...")
+                logger.info("Exiting...")
             except Exception as err:
-                logger.error("[!] Exception occured", exc_info=True)
+                logger.error("Exception occured", exc_info=True)
             finally:
                 proxy_server.shutdown()
                 proxy_server.server_close()
