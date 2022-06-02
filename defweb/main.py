@@ -91,7 +91,15 @@ def main():
         "-p", dest="port", type=int, help="port to use; defaults to 8000"
     )
     parser.add_argument(
-        "--proxy", action="store_true", help="start proxy for SOCKS4, SOCKS5 & HTTP"
+        "--proxy", action="store_true", help="start proxy for SOCKS4, SOCKS5 & HTTP(S)"
+    )
+    parser.add_argument(
+        "--proxy_socks_only",
+        action="store_true",
+        help="start proxy only for SOCKS4, SOCKS5",
+    )
+    parser.add_argument(
+        "--proxy_http_only", action="store_true", help="start proxy only for HTTP(S)"
     )
     parser.add_argument(
         "--key", dest="key", metavar="[ KEY ]", help="key file to use for webserver"
@@ -128,11 +136,6 @@ def main():
     )
 
     args = parser.parse_args()
-
-    # logging.basicConfig(
-    #     level=getattr(logging, args.log_level),
-    #     format="%(asctime)s %(message)s",
-    # )
 
     logDict = {
         "version": 1,
@@ -184,7 +187,7 @@ def main():
     else:
         host = "127.0.0.1"
 
-    if not args.proxy:
+    if not any([args.proxy, args.proxy_socks_only, args.proxy_http_only]):
         # setup webserver
         WebHandler = DefWebServer
 
@@ -253,7 +256,12 @@ def main():
     else:
         # setup proxy
 
-        logger.info(f"Running DefWebProxy: {DefWebProxy.server_version}")
+        use_proxies = {
+            "http": any([args.proxy, args.proxy_http_only]),
+            "socks": any([args.proxy, args.proxy_socks_only]),
+        }
+
+        logger.info(f"Running DefWebProxy: {DefWebProxy.server_version}; using proxies: {use_proxies}")
 
         if args.credentials:
             username, password = args.credentials.split(":")
@@ -262,9 +270,12 @@ def main():
                 username=username,
                 password=password,
                 enforce_auth=True,
+                use_proxy_types=use_proxies,
             ).init_proxy()
         else:
-            proxy_server = DefWebProxy(socketaddress=(host, port)).init_proxy()
+            proxy_server = DefWebProxy(
+                socketaddress=(host, port), use_proxy_types=use_proxies
+            ).init_proxy()
 
         if proxy_server is not None:
             try:
@@ -275,7 +286,7 @@ def main():
             except KeyboardInterrupt:
                 logger.info("Exiting...")
             except Exception as err:
-                logger.error("Exception occured", exc_info=True)
+                logger.error("Exception occurred", exc_info=True)
             finally:
                 proxy_server.shutdown()
                 proxy_server.server_close()
