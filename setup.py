@@ -26,7 +26,7 @@ setup(
     description="Python webserver with https and upload support",
     long_description=README,
     long_description_content_type="text/markdown",
-    package_data={"defweb": ["LICENSE", "VERSION"]},
+    package_data={"defweb": ["LICENSE", "VERSION", "sources/user_agents.txt"]},
     include_package_data=True,
     classifiers=[
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
