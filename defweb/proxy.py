@@ -331,6 +331,7 @@ class SocksTCPHandler(StreamRequestHandler):
                     ]
                     bind_port = bind_address[1]
                     self.logger.debug(f"bind_addr: {bind_addr}; bind_port: {bind_port}")
+
                     # +----+-----+-------+------+----------+----------+
                     # |VER | REP | RSV   | ATYP | BND.ADDR | BND.PORT |
                     # +----+-----+-------+------+----------+----------+
@@ -359,6 +360,7 @@ class SocksTCPHandler(StreamRequestHandler):
                     #           o  BND.PORT       server bound port in network octet order
                     #
                     #    Fields marked RESERVED (RSV) must be set to X'00'.
+
                     reply = struct.pack(
                         "!BBBBIH", self.socks_version, 0, 0, atype, bind_addr, bind_port
                     )
@@ -418,7 +420,7 @@ class SocksTCPHandler(StreamRequestHandler):
                     self.connection.send(b"HTTP/1.1 200 Connection established\r\n\r\n")
                     self.exchange_loop(self.connection, remote)
 
-                # if HTTP proxy is requested, forward the request in a seperate loop...
+                # if HTTP proxy is requested, forward the request in a separate loop...
                 if self.socks_version == 71:
                     self.http_exchange_loop(self.connection, remote, connection_bytes)
 
