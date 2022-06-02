@@ -164,11 +164,11 @@ def main():
 
     logger = logging.getLogger(__name__)
 
-    logger.info(f"Defweb version: {__version__}")
-
     if args.version:
         print(__version__)
         exit(0)
+
+    logger.info(f"Defweb version: {__version__}")
 
     if args.port:
         if args.port <= 1024:
