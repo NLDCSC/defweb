@@ -280,7 +280,7 @@ def main():
         if proxy_server is not None:
             try:
                 ip, host = proxy_server.server_address
-                logger.info(f"Starting WebDefProxy on {ip}:{host}")
+                logger.info(f"Starting DefWebProxy on {ip}:{host}")
                 proxy_server.serve_forever()
             # handle CTRL+C
             except KeyboardInterrupt:
