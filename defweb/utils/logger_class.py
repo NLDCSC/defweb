@@ -38,9 +38,13 @@ class HelperLogger(logging.Logger):
         """
 
         if not outgoing:
-            msg = colors.color(f"[{socks_version}] {msg}", fg=HelperLogger.level_map["data"])
+            msg = colors.color(
+                f"[{socks_version}] {msg}", fg=HelperLogger.level_map["data"]
+            )
         else:
-            msg = colors.color(f"[{socks_version}] {msg}", fg=HelperLogger.level_map["data_out"])
+            msg = colors.color(
+                f"[{socks_version}] {msg}", fg=HelperLogger.level_map["data_out"]
+            )
 
         return super(HelperLogger, self).info(msg, *args, **kwargs)
 

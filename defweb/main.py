@@ -15,7 +15,6 @@ from defweb.webserver import DefWebServer
 __version__ = get_version_from_file()
 
 
-
 env = os.environ
 
 cert_root = os.path.join(env["HOME"], ".defweb")

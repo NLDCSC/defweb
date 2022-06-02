@@ -6,16 +6,19 @@ import struct
 from socket import error as SocketError
 from socketserver import ThreadingMixIn, TCPServer, StreamRequestHandler
 
-__version__ = "0.0.6"
+__version__ = "0.1.0"
 
-SOCKS_VERSION_MAP = {4: "SOCKSv4", 5: "SOCKSv5", 67: "HTTP"}
+SOCKS_VERSION_MAP = {4: "SOCKSv4", 5: "SOCKSv5", 67: "HTTPS", 71: "HTTP"}
+
 METHOD_MAP = {
     0: "NO AUTH",
     1: "GSSAPI",
     2: "USERNAME & PASSWORD",
     255: "NO ACCEPTABLE METHODS",
 }
+
 COMMAND_MAP = {1: "CONNECT", 2: "BIND", 3: "UDP ASSOCIATE"}
+
 ERROR_MAP_5 = {
     0: "succeeded",
     1: "general SOCKS server failure",
@@ -27,6 +30,7 @@ ERROR_MAP_5 = {
     7: "Command not supported",
     8: "Address type not supported",
 }
+
 ERROR_MAP_4 = {
     90: "request granted",
     91: "request rejected or failed",
@@ -348,12 +352,109 @@ class SocksTCPHandler(StreamRequestHandler):
 
             self.server.close_request(self.request)
 
-        elif self.socks_version == 67:
-            # TODO setup HTTP proxy
+        elif self.socks_version == 67 or self.socks_version == 71:
 
-            self.logger.error("Not implemented!!")
+            connection_bytes = header + self.connection.recv(4096)
+
+            connection_string = connection_bytes.decode("utf-8")
+
+            self.logger.debug(f"Connection string received: {connection_string}")
+
+            self.dst_domain, self.dst_port = self.parse_connection_string(
+                connection_string
+            )
+
+            try:
+                # resolve ip address
+                self.dst_address = socket.gethostbyname(self.dst_domain)
+
+                remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                remote.connect((self.dst_address, self.dst_port))
+
+            except Exception as err:
+                self.logger.error(f"Error connecting to remote HTTP host: {err}")
+
+            # if HTTPS proxy is requested; notify the client that the tunnel is established...
+            if self.socks_version == 67:
+                self.connection.send(b"HTTP/1.1 200 Connection established\r\n\r\n")
+                self.exchange_loop(self.connection, remote)
+
+            # if HTTP proxy is requested, forward the request in a seperate loop...
+            if self.socks_version == 71:
+                self.http_exchange_loop(self.connection, remote, connection_bytes)
 
             self.server.close_request(self.request)
+
+    def parse_connection_string(self, data):
+        try:
+            first_line = data.split("\r\n")[0]
+
+            url = first_line.split(" ")[1]
+
+            http_pos = url.find("://")  # Finding the position of ://
+            if http_pos == -1:
+                temp = url
+            else:
+                temp = url[(http_pos + 3):]
+
+            port_pos = temp.find(":")
+
+            webserver_pos = temp.find("/")
+            if webserver_pos == -1:
+                webserver_pos = len(temp)
+
+            if port_pos == -1 or webserver_pos < port_pos:
+                port = 80
+                webserver = temp[:webserver_pos]
+            else:
+                port = int((temp[(port_pos + 1):])[: webserver_pos - port_pos - 1])
+                webserver = temp[:port_pos]
+
+            return webserver, port
+        except Exception as err:
+            self.logger.error(f"Error parsing connection_string, error --> {err}")
+
+    def http_exchange_loop(self, client, remote, connection_bytes):
+
+        try:
+            remote.send(connection_bytes)
+
+            while True:
+
+                # wait until client or remote is available for read
+                r, w, e = select.select([client, remote], [], [])
+
+                try:
+                    if remote in r:
+                        data = remote.recv(4096)
+                        self.logger.data(
+                            f"{self.client_ip}:{self.client_port} "
+                            f"<= {self.server_ip}:{self.server_port} "
+                            f"<= {self.dst_domain if self.dst_domain is not None else self.dst_address}"
+                            f"({self.dst_address if self.dst_domain is not None else '*'}):{self.dst_port}"
+                            f" | B:{len(data)}",
+                            SOCKS_VERSION_MAP[self.socks_version],
+                        )
+                        if client.send(data) <= 0:
+                            break
+                except SocketError as e:
+                    if e.errno != errno.ECONNRESET:
+                        raise  # Not error we are looking for
+                    client.send(data)
+                    self.logger.error(
+                        "Connection reset.... Might be expected behaviour..."
+                    )  # Handle connection resets.
+                except Exception as err:
+                    self.logger.error(
+                        f"Unhandled error during http data exchange, error --> {err}"
+                    )
+
+        except Exception as err:
+            self.logger.error(
+                f"Error during the transmission of the connection_bytes, error --> {err}"
+            )
+
+        self.logger.info("Forwarding requests ended!")
 
     def exchange_loop(self, client, remote):
 
@@ -372,7 +473,9 @@ class SocksTCPHandler(StreamRequestHandler):
                         f"=> {self.server_ip}:{self.server_port} "
                         f"=> {self.dst_domain if self.dst_domain is not None else self.dst_address}"
                         f"({self.dst_address if self.dst_domain is not None else '*'}):{self.dst_port}"
-                        f" | B:{len(data)}", SOCKS_VERSION_MAP[self.socks_version], True
+                        f" | B:{len(data)}",
+                        SOCKS_VERSION_MAP[self.socks_version],
+                        True,
                     )
                     if remote.send(data) <= 0:
                         break
@@ -389,7 +492,8 @@ class SocksTCPHandler(StreamRequestHandler):
                         f"<= {self.server_ip}:{self.server_port} "
                         f"<= {self.dst_domain if self.dst_domain is not None else self.dst_address}"
                         f"({self.dst_address if self.dst_domain is not None else '*'}):{self.dst_port}"
-                        f" | B:{len(data)}", SOCKS_VERSION_MAP[self.socks_version]
+                        f" | B:{len(data)}",
+                        SOCKS_VERSION_MAP[self.socks_version],
                     )
                     if client.send(data) <= 0:
                         break

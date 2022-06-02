@@ -3,7 +3,7 @@
 #### DEFWEB
 
 Defweb is an enhancement of the standard http.server of python3.
-Defweb supports https and file uploads.
+Defweb supports https and file uploads and can function as a SOCKS 4, 5 or HTTP proxy. 
 
 ##### Installing
 
