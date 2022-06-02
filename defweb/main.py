@@ -102,6 +102,11 @@ def main():
         "--proxy_http_only", action="store_true", help="start proxy only for HTTP(S)"
     )
     parser.add_argument(
+        "--rotate_user_agents",
+        action="store_true",
+        help="generate random user agent for each HTTP request (only HTTP supported)",
+    )
+    parser.add_argument(
         "--key", dest="key", metavar="[ KEY ]", help="key file to use for webserver"
     )
     parser.add_argument(
@@ -261,7 +266,9 @@ def main():
             "socks": any([args.proxy, args.proxy_socks_only]),
         }
 
-        logger.info(f"Running DefWebProxy: {DefWebProxy.server_version}; using proxies: {use_proxies}")
+        logger.info(
+            f"Running DefWebProxy: {DefWebProxy.server_version}; using proxies: {use_proxies}"
+        )
 
         if args.credentials:
             username, password = args.credentials.split(":")
@@ -271,10 +278,13 @@ def main():
                 password=password,
                 enforce_auth=True,
                 use_proxy_types=use_proxies,
+                rotate_user_agents=args.rotate_user_agents,
             ).init_proxy()
         else:
             proxy_server = DefWebProxy(
-                socketaddress=(host, port), use_proxy_types=use_proxies
+                socketaddress=(host, port),
+                use_proxy_types=use_proxies,
+                rotate_user_agents=args.rotate_user_agents,
             ).init_proxy()
 
         if proxy_server is not None:

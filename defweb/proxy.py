@@ -1,5 +1,8 @@
 import errno
 import logging
+import os
+import random
+import re
 import select
 import socket
 import struct
@@ -57,6 +60,8 @@ class SocksTCPHandler(StreamRequestHandler):
     dst_domain = None
 
     use_proxy_types = None
+    rotate_user_agents = None
+    user_agents_list = None
 
     def __init__(self, request, client_address, server):
 
@@ -79,6 +84,9 @@ class SocksTCPHandler(StreamRequestHandler):
         self.dst_domain = SocksTCPHandler.dst_domain
 
         self.use_proxy_types = SocksTCPHandler.use_proxy_types
+        self.rotate_user_agents = SocksTCPHandler.rotate_user_agents
+
+        self.user_agents_list = SocksTCPHandler.user_agents_list
 
         self.client_ip = None
         self.client_port = None
@@ -390,6 +398,11 @@ class SocksTCPHandler(StreamRequestHandler):
                     connection_string
                 )
 
+                if self.rotate_user_agents:
+                    connection_bytes = self.rotate_user_agent(
+                        connection_bytes=connection_bytes
+                    )
+
                 try:
                     # resolve ip address
                     self.dst_address = socket.gethostbyname(self.dst_domain)
@@ -415,6 +428,34 @@ class SocksTCPHandler(StreamRequestHandler):
                 )
 
             self.server.close_request(self.request)
+
+    @staticmethod
+    def load_from_file(filename):
+
+        with open(
+            os.path.join(os.path.dirname(__file__), "sources/", filename), "r"
+        ) as f:
+            data = f.read()
+
+        data = data.split("\n")
+
+        return data[:-1]
+
+    def generate_user_agent(self):
+
+        user_agent = random.choice(self.user_agents_list)
+
+        return user_agent
+
+    def rotate_user_agent(self, connection_bytes):
+
+        connection_string = connection_bytes.decode("utf-8")
+
+        altered_connection_string = re.sub(
+            "(?<=\nUser-Agent: ).+", self.generate_user_agent(), connection_string
+        )
+
+        return altered_connection_string.encode("utf-8")
 
     def parse_connection_string(self, data):
         try:
@@ -599,6 +640,7 @@ class DefWebProxy(object):
         password=None,
         enforce_auth=False,
         use_proxy_types=None,
+        rotate_user_agents=None,
     ):
 
         if not isinstance(socketaddress, tuple):
@@ -620,6 +662,10 @@ class DefWebProxy(object):
         self.SocksTCPHandler.password = password
 
         self.SocksTCPHandler.use_proxy_types = use_proxy_types
+        self.SocksTCPHandler.rotate_user_agents = rotate_user_agents
+        self.SocksTCPHandler.user_agents_list = self.SocksTCPHandler.load_from_file(
+            "user_agents.txt"
+        )
 
         self.SocksTCPHandler.server_ip = self.hostname
         self.SocksTCPHandler.server_port = self.port

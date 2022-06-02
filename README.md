@@ -28,6 +28,7 @@ optional arguments:
   --proxy               start proxy for SOCKS4, SOCKS5 & HTTP
   --proxy_socks_only    start proxy only for SOCKS4, SOCKS5
   --proxy_http_only     start proxy only for HTTP(S)
+  --rotate_user_agents  generate random user agent for each HTTP request (only HTTP supported)
   --key [ KEY ]         key file to use for webserver
   --cert [ CERT ]       certificate file to use for webserver
   -r, --recreate_cert   re-create the ssl certificate
