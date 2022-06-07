@@ -71,7 +71,7 @@ def main():
 
     proto = DefWebServer.protocols.HTTP
 
-    parser = argparse.ArgumentParser(prog="python3 -m defweb.main")
+    parser = argparse.ArgumentParser(prog="defweb")
 
     # General options
     gen_grp = parser.add_argument_group("General options")
