@@ -1,4 +1,5 @@
 import errno
+import ipaddress
 import logging
 import os
 import random
@@ -62,6 +63,7 @@ class SocksTCPHandler(StreamRequestHandler):
     use_proxy_types = None
     rotate_user_agents = None
     user_agents_list = None
+    ip_limit = None
 
     def __init__(self, request, client_address, server):
 
@@ -85,8 +87,8 @@ class SocksTCPHandler(StreamRequestHandler):
 
         self.use_proxy_types = SocksTCPHandler.use_proxy_types
         self.rotate_user_agents = SocksTCPHandler.rotate_user_agents
-
         self.user_agents_list = SocksTCPHandler.user_agents_list
+        self.ip_limit = (SocksTCPHandler.ip_limit,)
 
         self.client_ip = None
         self.client_port = None
@@ -94,6 +96,18 @@ class SocksTCPHandler(StreamRequestHandler):
     def handle(self):
 
         self.client_ip, self.client_port = self.client_address
+
+        if self.ip_limit is not None:
+            if ipaddress.ip_address(self.client_ip) not in self.ip_limit:
+                self.server.close_request(self.request)
+                self.logger.warning(
+                    f"Denied connection from {self.client_ip}; reason IP not in ip_limit variable"
+                )
+                return
+            else:
+                self.logger.info(
+                    f"Client ip {self.client_ip} is within the configured ip limit range ({self.ip_limit})"
+                )
 
         self.logger.info(
             f"Connection accepted from {self.client_ip}:{self.client_port}"
@@ -643,6 +657,7 @@ class DefWebProxy(object):
         enforce_auth=False,
         use_proxy_types=None,
         rotate_user_agents=None,
+        ip_limit=None,
     ):
 
         if not isinstance(socketaddress, tuple):
@@ -665,9 +680,11 @@ class DefWebProxy(object):
 
         self.SocksTCPHandler.use_proxy_types = use_proxy_types
         self.SocksTCPHandler.rotate_user_agents = rotate_user_agents
-        self.SocksTCPHandler.user_agents_list = self.SocksTCPHandler.load_from_file(
-            "user_agents.txt"
-        )
+        if rotate_user_agents:
+            self.SocksTCPHandler.user_agents_list = self.SocksTCPHandler.load_from_file(
+                "user_agents.txt"
+            )
+        self.SocksTCPHandler.ip_limit = ip_limit
 
         self.SocksTCPHandler.server_ip = self.hostname
         self.SocksTCPHandler.server_port = self.port

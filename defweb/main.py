@@ -1,4 +1,5 @@
 import argparse
+import ipaddress
 import logging
 import os
 import ssl
@@ -70,74 +71,89 @@ def main():
 
     proto = DefWebServer.protocols.HTTP
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(prog="python3 -m defweb.main")
 
-    parser.add_argument("-b", dest="bind", help="ip to bind to; defaults to 127.0.0.1")
-    parser.add_argument(
+    # General options
+    gen_grp = parser.add_argument_group("General options")
+    gen_grp.add_argument("-b", dest="bind", help="ip to bind to; defaults to 127.0.0.1")
+    gen_grp.add_argument(
+        "-p", dest="port", type=int, help="port to use; defaults to 8000"
+    )
+    gen_grp.add_argument(
+        "-v", "--version", action="store_true", help="show version and then exit"
+    )
+    gen_grp.add_argument(
+        "--log-level",
+        default="INFO",
+        help="DEBUG, INFO (default), WARNING, ERROR, CRITICAL",
+    )
+
+    # Webserver options
+    web_grp = parser.add_argument_group("Webserver options")
+    web_grp.add_argument(
         "-d",
         dest="directory",
-        metavar="[ DIR ]",
+        metavar="DIR",
         default=None,
         help="path to use as document root",
     )
-    parser.add_argument(
+    web_grp.add_argument(
         "-i",
         dest="impersonate",
-        metavar="[ SERVER NAME ]",
+        metavar="SERVER NAME",
         default=None,
         help="server name to send in headers",
     )
-    parser.add_argument(
-        "-p", dest="port", type=int, help="port to use; defaults to 8000"
+    web_grp.add_argument(
+        "--key", dest="key", metavar="KEY", help="key file to use for webserver"
     )
-    parser.add_argument(
-        "--proxy", action="store_true", help="start proxy for SOCKS4, SOCKS5 & HTTP(S)"
-    )
-    parser.add_argument(
-        "--proxy_socks_only",
-        action="store_true",
-        help="start proxy only for SOCKS4, SOCKS5",
-    )
-    parser.add_argument(
-        "--proxy_http_only", action="store_true", help="start proxy only for HTTP(S)"
-    )
-    parser.add_argument(
-        "--rotate_user_agents",
-        action="store_true",
-        help="generate random user agent for each HTTP request (only HTTP supported)",
-    )
-    parser.add_argument(
-        "--key", dest="key", metavar="[ KEY ]", help="key file to use for webserver"
-    )
-    parser.add_argument(
+    web_grp.add_argument(
         "--cert",
         dest="cert",
-        metavar="[ CERT ]",
+        metavar="CERT",
         help="certificate file to use for webserver",
     )
-    parser.add_argument(
+    web_grp.add_argument(
         "-r",
         "--recreate_cert",
         action="store_true",
         help="re-create the ssl certificate",
     )
-    parser.add_argument(
+    web_grp.add_argument(
         "-s", "--secure", action="store_true", help="use https instead of http"
     )
-    parser.add_argument(
+
+    # Proxy options
+    proxy_grp = parser.add_argument_group("Proxy options")
+
+    proxy_grp.add_argument(
+        "--proxy", action="store_true", help="start proxy for SOCKS4, SOCKS5 & HTTP(S)"
+    )
+    proxy_grp.add_argument(
+        "--proxy_socks_only",
+        action="store_true",
+        help="start proxy only for SOCKS4, SOCKS5",
+    )
+    proxy_grp.add_argument(
+        "--proxy_http_only", action="store_true", help="start proxy only for HTTP(S)"
+    )
+    proxy_grp.add_argument(
+        "--rotate_user_agents",
+        action="store_true",
+        help="generate random user agent for each HTTP request (only HTTP supported)",
+    )
+    proxy_grp.add_argument(
+        "--ip-limit",
+        dest="ip_limit",
+        metavar="CIDR",
+        default=None,
+        help="limit proxy to only accept connections coming from this CIDR range",
+    )
+    proxy_grp.add_argument(
         "-u",
         dest="credentials",
-        metavar="[ USER:PASSWORD ]",
+        metavar="USER:PASSWORD",
         help="user credentials to use when authenticating to the proxy server",
-    )
-    parser.add_argument(
-        "-v", "--version", action="store_true", help="show version and then exit"
-    )
-
-    parser.add_argument(
-        "--log-level",
-        default="INFO",
-        help="DEBUG, INFO (default), WARNING, ERROR, CRITICAL",
     )
 
     args = parser.parse_args()
@@ -260,6 +276,16 @@ def main():
             sys.exit(0)
     else:
         # setup proxy
+        if args.ip_limit:
+            try:
+                set_ip_limit = ipaddress.ip_network(args.ip_limit)
+            except ValueError:
+                logger.error(
+                    "The provided value for --ip-limit does not appear to be a valid IPv4 or IPv6 CIDR notation"
+                )
+                sys.exit(1)
+        else:
+            set_ip_limit = None
 
         use_proxies = {
             "http": any([args.proxy, args.proxy_http_only]),
@@ -279,12 +305,14 @@ def main():
                 enforce_auth=True,
                 use_proxy_types=use_proxies,
                 rotate_user_agents=args.rotate_user_agents,
+                ip_limit=set_ip_limit,
             ).init_proxy()
         else:
             proxy_server = DefWebProxy(
                 socketaddress=(host, port),
                 use_proxy_types=use_proxies,
                 rotate_user_agents=args.rotate_user_agents,
+                ip_limit=set_ip_limit,
             ).init_proxy()
 
         if proxy_server is not None:
