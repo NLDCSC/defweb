@@ -15,32 +15,40 @@ pip install defweb
 ##### Options
 
 ```bash
-usage: __main__.py [-h] [-b BIND] [-d [DIR]] [-i [SERVER NAME]] [-p PORT]
-                   [--proxy] [--key [KEY]] [--cert [CERT]] [-r] [-s]
-                   [-u [USER:PASSWORD]] [-v]
+usage: python3 -m defweb.main [-h] [-b BIND] [-p PORT] [-v] [--log-level LOG_LEVEL] [-d DIR] [-i SERVER NAME] [--key KEY] [--cert CERT] [-r] [-s] [--proxy] [--proxy_socks_only] [--proxy_http_only]
+                              [--rotate_user_agents] [--ip-limit CIDR] [-u USER:PASSWORD]
 
 optional arguments:
   -h, --help            show this help message and exit
+
+General options:
   -b BIND               ip to bind to; defaults to 127.0.0.1
-  -d [ DIR ]            path to use as document root
-  -i [ SERVER NAME ]    server name to send in headers
   -p PORT               port to use; defaults to 8000
-  --proxy               start proxy for SOCKS4, SOCKS5 & HTTP
+  -v, --version         show version and then exit
+  --log-level LOG_LEVEL
+                        DEBUG, INFO (default), WARNING, ERROR, CRITICAL
+
+Webserver options:
+  -d DIR                path to use as document root
+  -i SERVER NAME        server name to send in headers
+  --key KEY             key file to use for webserver
+  --cert CERT           certificate file to use for webserver
+  -r, --recreate_cert   re-create the ssl certificate
+  -s, --secure          use https instead of http
+
+Proxy options:
+  --proxy               start proxy for SOCKS4, SOCKS5 & HTTP(S)
   --proxy_socks_only    start proxy only for SOCKS4, SOCKS5
   --proxy_http_only     start proxy only for HTTP(S)
   --rotate_user_agents  generate random user agent for each HTTP request (only HTTP supported)
-  --key [ KEY ]         key file to use for webserver
-  --cert [ CERT ]       certificate file to use for webserver
-  -r, --recreate_cert   re-create the ssl certificate
-  -s, --secure          use https instead of http
-  -u [ USER:PASSWORD ]  user credentials to use when authenticating to the
-                        proxy server
-  -v, --version         show version and then exit
+  --ip-limit CIDR       limit proxy to only accept connections coming from this CIDR range
+  -u USER:PASSWORD      user credentials to use when authenticating to the proxy server
 ```
+
 ##### Usage
 
 ```bash
-python3 -m defweb
+python3 -m defweb.main
 ```
 
 ##### Upload
