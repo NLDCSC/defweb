@@ -9,6 +9,7 @@ from logging.config import dictConfig
 from subprocess import CompletedProcess, PIPE, run
 
 from defweb.proxy import DefWebProxy
+from defweb.reverse_proxy import DefWebReverseProxy
 from defweb.utils.logger_class import HelperLogger
 from defweb.version import get_version_from_file
 from defweb.webserver import DefWebServer
@@ -156,6 +157,27 @@ def main():
         help="user credentials to use when authenticating to the proxy server",
     )
 
+    # Reverse Proxy options
+    rev_proxy_grp = parser.add_argument_group("Reverse Proxy options")
+    rev_proxy_grp.add_argument(
+        "--rev_proxy", action="store_true", help="start reverse TCP proxy"
+    )
+    rev_proxy_grp.add_argument(
+        "-pi",
+        dest="proxied_ip",
+        metavar="PROXIED_IP",
+        default=None,
+        help="provide the ip of the service we are proxying for",
+    )
+    rev_proxy_grp.add_argument(
+        "-pp",
+        dest="proxied_port",
+        type=int,
+        metavar="PROXIED_PORT",
+        default=None,
+        help="provide the port of the service we are proxying for",
+    )
+
     args = parser.parse_args()
 
     logDict = {
@@ -208,7 +230,7 @@ def main():
     else:
         host = "127.0.0.1"
 
-    if not any([args.proxy, args.proxy_socks_only, args.proxy_http_only]):
+    if not any([args.proxy, args.proxy_socks_only, args.proxy_http_only, args.rev_proxy]):
         # setup webserver
         WebHandler = DefWebServer
 
@@ -275,60 +297,88 @@ def main():
             logger.info("Server closed, exiting!")
             sys.exit(0)
     else:
-        # setup proxy
-        if args.ip_limit:
-            try:
-                set_ip_limit = ipaddress.ip_network(args.ip_limit)
-            except ValueError:
-                logger.error(
-                    "The provided value for --ip-limit does not appear to be a valid IPv4 or IPv6 CIDR notation"
-                )
-                sys.exit(1)
-        else:
-            set_ip_limit = None
+        if args.rev_proxy:
 
-        use_proxies = {
-            "http": any([args.proxy, args.proxy_http_only]),
-            "socks": any([args.proxy, args.proxy_socks_only]),
-        }
+            logger.info(
+                f"Running DefWebReverseProxy: {DefWebReverseProxy.server_version}"
+            )
 
-        logger.info(
-            f"Running DefWebProxy: {DefWebProxy.server_version}; using proxies: {use_proxies}"
-        )
-
-        if args.credentials:
-            username, password = args.credentials.split(":")
-            proxy_server = DefWebProxy(
+            rev_proxy_server = DefWebReverseProxy(
                 socketaddress=(host, port),
-                username=username,
-                password=password,
-                enforce_auth=True,
-                use_proxy_types=use_proxies,
-                rotate_user_agents=args.rotate_user_agents,
-                ip_limit=set_ip_limit,
-            ).init_proxy()
-        else:
-            proxy_server = DefWebProxy(
-                socketaddress=(host, port),
-                use_proxy_types=use_proxies,
-                rotate_user_agents=args.rotate_user_agents,
-                ip_limit=set_ip_limit,
+                proxied_ip=args.proxied_ip,
+                proxied_port=args.proxied_port
             ).init_proxy()
 
-        if proxy_server is not None:
-            try:
-                ip, host = proxy_server.server_address
-                logger.info(f"Starting DefWebProxy on {ip}:{host}")
-                proxy_server.serve_forever()
-            # handle CTRL+C
-            except KeyboardInterrupt:
-                logger.info("Exiting...")
-            except Exception as err:
-                logger.error("Exception occurred", exc_info=True)
-            finally:
-                proxy_server.shutdown()
-                proxy_server.server_close()
-                sys.exit(0)
+            if rev_proxy_server is not None:
+                try:
+                    ip, host = rev_proxy_server.server_address
+                    logger.info(f"Starting DefWebReverseProxy on {ip}:{host}")
+                    rev_proxy_server.serve_forever()
+                # handle CTRL+C
+                except KeyboardInterrupt:
+                    logger.info("Exiting...")
+                except Exception as err:
+                    logger.error("Exception occurred", exc_info=True)
+                finally:
+                    rev_proxy_server.shutdown()
+                    rev_proxy_server.server_close()
+                    sys.exit(0)
+
+        else:
+            # setup proxy
+            if args.ip_limit:
+                try:
+                    set_ip_limit = ipaddress.ip_network(args.ip_limit)
+                except ValueError:
+                    logger.error(
+                        "The provided value for --ip-limit does not appear to be a valid IPv4 or IPv6 CIDR notation"
+                    )
+                    sys.exit(1)
+            else:
+                set_ip_limit = None
+
+            use_proxies = {
+                "http": any([args.proxy, args.proxy_http_only]),
+                "socks": any([args.proxy, args.proxy_socks_only]),
+            }
+
+            logger.info(
+                f"Running DefWebProxy: {DefWebProxy.server_version}; using proxies: {use_proxies}"
+            )
+
+            if args.credentials:
+                username, password = args.credentials.split(":")
+                proxy_server = DefWebProxy(
+                    socketaddress=(host, port),
+                    username=username,
+                    password=password,
+                    enforce_auth=True,
+                    use_proxy_types=use_proxies,
+                    rotate_user_agents=args.rotate_user_agents,
+                    ip_limit=set_ip_limit,
+                ).init_proxy()
+            else:
+                proxy_server = DefWebProxy(
+                    socketaddress=(host, port),
+                    use_proxy_types=use_proxies,
+                    rotate_user_agents=args.rotate_user_agents,
+                    ip_limit=set_ip_limit,
+                ).init_proxy()
+
+            if proxy_server is not None:
+                try:
+                    ip, host = proxy_server.server_address
+                    logger.info(f"Starting DefWebProxy on {ip}:{host}")
+                    proxy_server.serve_forever()
+                # handle CTRL+C
+                except KeyboardInterrupt:
+                    logger.info("Exiting...")
+                except Exception as err:
+                    logger.error("Exception occurred", exc_info=True)
+                finally:
+                    proxy_server.shutdown()
+                    proxy_server.server_close()
+                    sys.exit(0)
 
 
 if __name__ == "__main__":
