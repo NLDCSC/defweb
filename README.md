@@ -48,7 +48,7 @@ Proxy options:
 
 Reverse Proxy options:
   --rev_proxy           start reverse TCP proxy
-  --rev_proxy_tls       start reverse TCP proxy with TLS
+  --rev_proxy_tls       add TLS support to the reverse TCP proxy
   -ca                   whether to setup own CA and sign the certificates used by the --rev_proxy_tls option
   -pi PROXIED_IP        provide the ip of the service we are proxying for
   -pp PROXIED_PORT      provide the port of the service we are proxying for

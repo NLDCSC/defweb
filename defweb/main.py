@@ -121,7 +121,7 @@ def main():
         "--rev_proxy", action="store_true", help="start reverse TCP proxy"
     )
     rev_proxy_grp.add_argument(
-        "--rev_proxy_tls", action="store_true", help="start reverse TCP proxy with TLS"
+        "--rev_proxy_tls", action="store_true", help="add TLS support to the reverse TCP proxy"
     )
     rev_proxy_grp.add_argument(
         "-ca",
