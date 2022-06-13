@@ -47,7 +47,7 @@ class ThreadingTCPServer(ThreadingMixIn, TCPServer):
     pass
 
 
-class SocksTCPHandler(StreamRequestHandler):
+class ProxyTCPHandler(StreamRequestHandler):
 
     enfore_auth = False
 
@@ -74,21 +74,21 @@ class SocksTCPHandler(StreamRequestHandler):
         # Defaults to SOCKS4 proxy
         self.socks_version = 4
 
-        self.enfore_auth = SocksTCPHandler.enfore_auth
-        self.username = SocksTCPHandler.username
-        self.password = SocksTCPHandler.password
+        self.enfore_auth = ProxyTCPHandler.enfore_auth
+        self.username = ProxyTCPHandler.username
+        self.password = ProxyTCPHandler.password
 
-        self.server_ip = SocksTCPHandler.server_ip
-        self.server_port = SocksTCPHandler.server_port
+        self.server_ip = ProxyTCPHandler.server_ip
+        self.server_port = ProxyTCPHandler.server_port
 
-        self.dst_address = SocksTCPHandler.dst_address
-        self.dst_port = SocksTCPHandler.dst_port
-        self.dst_domain = SocksTCPHandler.dst_domain
+        self.dst_address = ProxyTCPHandler.dst_address
+        self.dst_port = ProxyTCPHandler.dst_port
+        self.dst_domain = ProxyTCPHandler.dst_domain
 
-        self.use_proxy_types = SocksTCPHandler.use_proxy_types
-        self.rotate_user_agents = SocksTCPHandler.rotate_user_agents
-        self.user_agents_list = SocksTCPHandler.user_agents_list
-        self.ip_limit = (SocksTCPHandler.ip_limit,)
+        self.use_proxy_types = ProxyTCPHandler.use_proxy_types
+        self.rotate_user_agents = ProxyTCPHandler.rotate_user_agents
+        self.user_agents_list = ProxyTCPHandler.user_agents_list
+        self.ip_limit = (ProxyTCPHandler.ip_limit,)
 
         self.client_ip = None
         self.client_port = None
@@ -515,6 +515,8 @@ class SocksTCPHandler(StreamRequestHandler):
                 try:
                     if remote in r:
                         data = remote.recv(4096)
+                        if client.send(data) <= 0:
+                            break
                         self.logger.data(
                             f"{self.client_ip}:{self.client_port} "
                             f"<= {self.server_ip}:{self.server_port} "
@@ -523,8 +525,6 @@ class SocksTCPHandler(StreamRequestHandler):
                             f" | B:{len(data)}",
                             SOCKS_VERSION_MAP[self.socks_version],
                         )
-                        if client.send(data) <= 0:
-                            break
                 except SocketError as e:
                     if e.errno != errno.ECONNRESET:
                         raise  # Not error we are looking for
@@ -554,6 +554,8 @@ class SocksTCPHandler(StreamRequestHandler):
             try:
                 if client in r:
                     data = client.recv(4096)
+                    if remote.send(data) <= 0:
+                        break
                     if self.socks_version == 4:
                         data = data[1:]
                     self.logger.data(
@@ -565,8 +567,6 @@ class SocksTCPHandler(StreamRequestHandler):
                         SOCKS_VERSION_MAP[self.socks_version],
                         True,
                     )
-                    if remote.send(data) <= 0:
-                        break
             except ConnectionResetError:
                 self.logger.error(
                     "Connection reset.... Might be expected behaviour..."
@@ -575,6 +575,8 @@ class SocksTCPHandler(StreamRequestHandler):
             try:
                 if remote in r:
                     data = remote.recv(4096)
+                    if client.send(data) <= 0:
+                        break
                     self.logger.data(
                         f"{self.client_ip}:{self.client_port} "
                         f"<= {self.server_ip}:{self.server_port} "
@@ -583,8 +585,6 @@ class SocksTCPHandler(StreamRequestHandler):
                         f" | B:{len(data)}",
                         SOCKS_VERSION_MAP[self.socks_version],
                     )
-                    if client.send(data) <= 0:
-                        break
             except SocketError as e:
                 if e.errno != errno.ECONNRESET:
                     raise  # Not error we are looking for
@@ -662,7 +662,7 @@ class DefWebProxy(object):
 
         if not isinstance(socketaddress, tuple):
             raise TypeError(
-                f"Argument socketaddress should be a tuple, not a {type(socketaddress)}"
+                f"Argument socket address should be a tuple, not a {type(socketaddress)}"
             )
 
         self.hostname = socketaddress[0]
@@ -672,27 +672,27 @@ class DefWebProxy(object):
 
         self.proxy_server = None
 
-        self.SocksTCPHandler = SocksTCPHandler
+        self.ProxyTCPHandler = ProxyTCPHandler
 
-        self.SocksTCPHandler.enfore_auth = enforce_auth
-        self.SocksTCPHandler.username = username
-        self.SocksTCPHandler.password = password
+        self.ProxyTCPHandler.enfore_auth = enforce_auth
+        self.ProxyTCPHandler.username = username
+        self.ProxyTCPHandler.password = password
 
-        self.SocksTCPHandler.use_proxy_types = use_proxy_types
-        self.SocksTCPHandler.rotate_user_agents = rotate_user_agents
+        self.ProxyTCPHandler.use_proxy_types = use_proxy_types
+        self.ProxyTCPHandler.rotate_user_agents = rotate_user_agents
         if rotate_user_agents:
-            self.SocksTCPHandler.user_agents_list = self.SocksTCPHandler.load_from_file(
+            self.ProxyTCPHandler.user_agents_list = self.ProxyTCPHandler.load_from_file(
                 "user_agents.txt"
             )
-        self.SocksTCPHandler.ip_limit = ip_limit
+        self.ProxyTCPHandler.ip_limit = ip_limit
 
-        self.SocksTCPHandler.server_ip = self.hostname
-        self.SocksTCPHandler.server_port = self.port
+        self.ProxyTCPHandler.server_ip = self.hostname
+        self.ProxyTCPHandler.server_port = self.port
 
     def init_proxy(self):
         try:
             self.proxy_server = ThreadingTCPServer(
-                (self.hostname, int(self.port)), self.SocksTCPHandler
+                (self.hostname, int(self.port)), self.ProxyTCPHandler
             )
             self.logger.info("Initializing...")
         except OSError as err:

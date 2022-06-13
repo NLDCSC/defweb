@@ -6,65 +6,16 @@ import ssl
 import sys
 from http.server import HTTPServer
 from logging.config import dictConfig
-from subprocess import CompletedProcess, PIPE, run
 
+from defweb.common.constants import CERT_PATH, KEY_PATH, SIGNED_CERT_PATH
+from defweb.common.pki import DefWebPKI
 from defweb.proxy import DefWebProxy
+from defweb.reverse_proxy import DefWebReverseProxy
 from defweb.utils.logger_class import HelperLogger
 from defweb.version import get_version_from_file
 from defweb.webserver import DefWebServer
 
 __version__ = get_version_from_file()
-
-
-env = os.environ
-
-cert_root = os.path.join(env["HOME"], ".defweb")
-
-cert_path = os.path.join(cert_root, "server.pem")
-key_path = os.path.join(cert_root, "server_key.pem")
-
-
-def create_cert():
-
-    # check if .defweb folder exists
-    if not os.path.exists(cert_root):
-        os.makedirs(cert_root)
-
-    try:
-        result = run(
-            [
-                "/usr/bin/openssl",
-                "req",
-                "-new",
-                "-x509",
-                "-keyout",
-                key_path,
-                "-out",
-                cert_path,
-                "-days",
-                "365",
-                "-nodes",
-                "-subj",
-                "/C=NL/ST=DefWeb/L=DefWeb/O=DefWeb/OU=DefWeb/CN=DefWeb.nl",
-                "-passout",
-                "pass:DefWeb",
-            ],
-            shell=False,
-            stdout=PIPE,
-            stderr=PIPE,
-            cwd=cert_root,
-        )
-    except FileNotFoundError as err:
-        result = f"{err}"
-
-    if isinstance(result, CompletedProcess):
-        if result.returncode == 0:
-            result = 0
-        elif result.returncode == 1:
-            error = result.stderr.decode("utf-8").split("\n")[-3]
-            result = f"Error generating ssl certificate; {error}"
-
-    return result
 
 
 def main():
@@ -105,6 +56,23 @@ def main():
         help="server name to send in headers",
     )
     web_grp.add_argument(
+        "-s",
+        "--secure",
+        action="store_true",
+        help="use https instead of http, if --key and --cert are omitted certificates will be auto generated",
+    )
+    web_grp.add_argument(
+        "-r",
+        "--recreate_cert",
+        action="store_true",
+        help="re-create the generated ssl certificate",
+    )
+    web_grp.add_argument(
+        "--sign",
+        action="store_true",
+        help="when using auto generated certs (-s without --key or --cert), should they be signed or not",
+    )
+    web_grp.add_argument(
         "--key", dest="key", metavar="KEY", help="key file to use for webserver"
     )
     web_grp.add_argument(
@@ -112,15 +80,6 @@ def main():
         dest="cert",
         metavar="CERT",
         help="certificate file to use for webserver",
-    )
-    web_grp.add_argument(
-        "-r",
-        "--recreate_cert",
-        action="store_true",
-        help="re-create the ssl certificate",
-    )
-    web_grp.add_argument(
-        "-s", "--secure", action="store_true", help="use https instead of http"
     )
 
     # Proxy options
@@ -154,6 +113,47 @@ def main():
         dest="credentials",
         metavar="USER:PASSWORD",
         help="user credentials to use when authenticating to the proxy server",
+    )
+
+    # Reverse Proxy options
+    rev_proxy_grp = parser.add_argument_group("Reverse Proxy options")
+    rev_proxy_grp.add_argument(
+        "--rev_proxy", action="store_true", help="start reverse TCP proxy"
+    )
+    rev_proxy_grp.add_argument(
+        "--rev_proxy_tls", action="store_true", help="start reverse TCP proxy with TLS"
+    )
+    rev_proxy_grp.add_argument(
+        "-ca",
+        action="store_true",
+        help="whether to setup own CA and sign the certificates used by the --rev_proxy_tls option",
+    )
+    rev_proxy_grp.add_argument(
+        "-pi",
+        dest="proxied_ip",
+        metavar="PROXIED_IP",
+        default=None,
+        help="provide the ip of the service we are proxying for",
+    )
+    rev_proxy_grp.add_argument(
+        "-pp",
+        dest="proxied_port",
+        type=int,
+        metavar="PROXIED_PORT",
+        default=None,
+        help="provide the port of the service we are proxying for",
+    )
+    rev_proxy_grp.add_argument(
+        "-ptls",
+        action="store_true",
+        help="whether the service we are proxying for uses TLS",
+    )
+    rev_proxy_grp.add_argument(
+        "-m",
+        dest="middlewares",
+        metavar="MIDDLEWARES",
+        default=None,
+        help="comma seperated middlewares to use",
     )
 
     args = parser.parse_args()
@@ -208,7 +208,9 @@ def main():
     else:
         host = "127.0.0.1"
 
-    if not any([args.proxy, args.proxy_socks_only, args.proxy_http_only]):
+    if not any(
+        [args.proxy, args.proxy_socks_only, args.proxy_http_only, args.rev_proxy]
+    ):
         # setup webserver
         WebHandler = DefWebServer
 
@@ -236,30 +238,47 @@ def main():
 
         if args.secure:
 
+            use_cert_path = CERT_PATH
+            use_key_path = KEY_PATH
+
             if args.cert:
                 if os.path.exists(args.cert):
-                    global cert_path
-                    cert_path = args.cert
+                    use_cert_path = args.cert
                 else:
                     raise FileNotFoundError("Certificate file not found!")
 
             if args.key:
                 if os.path.exists(args.key):
-                    global key_path
-                    key_path = args.key
+                    use_key_path = args.key
                 else:
-                    raise FileNotFoundError("Certificate file not found!")
+                    raise FileNotFoundError("Key file not found!")
 
-            result = 0
+            result = False
 
             if not args.cert:
-                if not os.path.exists(cert_path) or args.recreate_cert:
-                    result = create_cert()
+                if not os.path.exists(use_cert_path) or args.recreate_cert:
+                    dwp = DefWebPKI()
+                    result = dwp.create_https_certs()
+                else:
+                    result = True
 
-            if result == 0:
+                if args.sign:
+                    dwp = DefWebPKI()
+                    ca = dwp.create_ca_certs()
+                    ca_sign = dwp.sign_https_certs()
+
+                    result = all([ca, ca_sign])
+
+                    if result:
+                        use_cert_path = SIGNED_CERT_PATH
+
+            if result:
                 proto = DefWebServer.protocols.HTTPS
                 httpd.socket = ssl.wrap_socket(
-                    httpd.socket, keyfile=key_path, certfile=cert_path, server_side=True
+                    httpd.socket,
+                    keyfile=use_key_path,
+                    certfile=use_cert_path,
+                    server_side=True,
                 )
             else:
                 logger.error(f"Certificate creation produced an error: {result}")
@@ -275,60 +294,123 @@ def main():
             logger.info("Server closed, exiting!")
             sys.exit(0)
     else:
-        # setup proxy
-        if args.ip_limit:
-            try:
-                set_ip_limit = ipaddress.ip_network(args.ip_limit)
-            except ValueError:
-                logger.error(
-                    "The provided value for --ip-limit does not appear to be a valid IPv4 or IPv6 CIDR notation"
-                )
-                sys.exit(1)
-        else:
-            set_ip_limit = None
+        if args.rev_proxy:
 
-        use_proxies = {
-            "http": any([args.proxy, args.proxy_http_only]),
-            "socks": any([args.proxy, args.proxy_socks_only]),
-        }
+            logger.info(
+                f"Running DefWebReverseProxy: {DefWebReverseProxy.server_version}"
+            )
 
-        logger.info(
-            f"Running DefWebProxy: {DefWebProxy.server_version}; using proxies: {use_proxies}"
-        )
-
-        if args.credentials:
-            username, password = args.credentials.split(":")
-            proxy_server = DefWebProxy(
+            rev_proxy_server = DefWebReverseProxy(
                 socketaddress=(host, port),
-                username=username,
-                password=password,
-                enforce_auth=True,
-                use_proxy_types=use_proxies,
-                rotate_user_agents=args.rotate_user_agents,
-                ip_limit=set_ip_limit,
-            ).init_proxy()
-        else:
-            proxy_server = DefWebProxy(
-                socketaddress=(host, port),
-                use_proxy_types=use_proxies,
-                rotate_user_agents=args.rotate_user_agents,
-                ip_limit=set_ip_limit,
+                proxied_ip=args.proxied_ip,
+                proxied_port=args.proxied_port,
+                proxied_tls=args.ptls,
+                middlewares=args.middlewares.split(","),
             ).init_proxy()
 
-        if proxy_server is not None:
-            try:
-                ip, host = proxy_server.server_address
-                logger.info(f"Starting DefWebProxy on {ip}:{host}")
-                proxy_server.serve_forever()
-            # handle CTRL+C
-            except KeyboardInterrupt:
-                logger.info("Exiting...")
-            except Exception as err:
-                logger.error("Exception occurred", exc_info=True)
-            finally:
-                proxy_server.shutdown()
-                proxy_server.server_close()
-                sys.exit(0)
+            if args.rev_proxy_tls:
+                use_cert_path = CERT_PATH
+                use_key_path = KEY_PATH
+
+                result = False
+
+                if not os.path.exists(use_cert_path):
+                    dwp = DefWebPKI()
+                    result = dwp.create_https_certs()
+                else:
+                    result = True
+
+                if args.ca:
+                    dwp = DefWebPKI()
+                    ca = dwp.create_ca_certs()
+                    ca_sign = dwp.sign_https_certs()
+
+                    result = all([ca, ca_sign])
+
+                    if result:
+                        use_cert_path = SIGNED_CERT_PATH
+
+                if result:
+                    rev_proxy_server.socket = ssl.wrap_socket(
+                        rev_proxy_server.socket,
+                        keyfile=use_key_path,
+                        certfile=use_cert_path,
+                        server_side=True,
+                    )
+                else:
+                    logger.error(f"Certificate creation produced an error: {result}")
+                    logger.error("Cannot create certificate... skipping TLS...")
+
+            if rev_proxy_server is not None:
+                try:
+                    ip, host = rev_proxy_server.server_address
+                    logger.info(f"Starting DefWebReverseProxy on {ip}:{host}")
+                    rev_proxy_server.serve_forever()
+                # handle CTRL+C
+                except KeyboardInterrupt:
+                    logger.info("Exiting...")
+                except Exception as err:
+                    logger.error("Exception occurred", exc_info=True)
+                finally:
+                    rev_proxy_server.shutdown()
+                    rev_proxy_server.server_close()
+                    sys.exit(0)
+
+        else:
+            # setup proxy
+            if args.ip_limit:
+                try:
+                    set_ip_limit = ipaddress.ip_network(args.ip_limit)
+                except ValueError:
+                    logger.error(
+                        "The provided value for --ip-limit does not appear to be a valid IPv4 or IPv6 CIDR notation"
+                    )
+                    sys.exit(1)
+            else:
+                set_ip_limit = None
+
+            use_proxies = {
+                "http": any([args.proxy, args.proxy_http_only]),
+                "socks": any([args.proxy, args.proxy_socks_only]),
+            }
+
+            logger.info(
+                f"Running DefWebProxy: {DefWebProxy.server_version}; using proxies: {use_proxies}"
+            )
+
+            if args.credentials:
+                username, password = args.credentials.split(":")
+                proxy_server = DefWebProxy(
+                    socketaddress=(host, port),
+                    username=username,
+                    password=password,
+                    enforce_auth=True,
+                    use_proxy_types=use_proxies,
+                    rotate_user_agents=args.rotate_user_agents,
+                    ip_limit=set_ip_limit,
+                ).init_proxy()
+            else:
+                proxy_server = DefWebProxy(
+                    socketaddress=(host, port),
+                    use_proxy_types=use_proxies,
+                    rotate_user_agents=args.rotate_user_agents,
+                    ip_limit=set_ip_limit,
+                ).init_proxy()
+
+            if proxy_server is not None:
+                try:
+                    ip, host = proxy_server.server_address
+                    logger.info(f"Starting DefWebProxy on {ip}:{host}")
+                    proxy_server.serve_forever()
+                # handle CTRL+C
+                except KeyboardInterrupt:
+                    logger.info("Exiting...")
+                except Exception as err:
+                    logger.error("Exception occurred", exc_info=True)
+                finally:
+                    proxy_server.shutdown()
+                    proxy_server.server_close()
+                    sys.exit(0)
 
 
 if __name__ == "__main__":
