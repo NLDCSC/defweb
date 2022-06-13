@@ -515,6 +515,8 @@ class ProxyTCPHandler(StreamRequestHandler):
                 try:
                     if remote in r:
                         data = remote.recv(4096)
+                        if client.send(data) <= 0:
+                            break
                         self.logger.data(
                             f"{self.client_ip}:{self.client_port} "
                             f"<= {self.server_ip}:{self.server_port} "
@@ -523,8 +525,6 @@ class ProxyTCPHandler(StreamRequestHandler):
                             f" | B:{len(data)}",
                             SOCKS_VERSION_MAP[self.socks_version],
                         )
-                        if client.send(data) <= 0:
-                            break
                 except SocketError as e:
                     if e.errno != errno.ECONNRESET:
                         raise  # Not error we are looking for
@@ -554,6 +554,8 @@ class ProxyTCPHandler(StreamRequestHandler):
             try:
                 if client in r:
                     data = client.recv(4096)
+                    if remote.send(data) <= 0:
+                        break
                     if self.socks_version == 4:
                         data = data[1:]
                     self.logger.data(
@@ -565,8 +567,6 @@ class ProxyTCPHandler(StreamRequestHandler):
                         SOCKS_VERSION_MAP[self.socks_version],
                         True,
                     )
-                    if remote.send(data) <= 0:
-                        break
             except ConnectionResetError:
                 self.logger.error(
                     "Connection reset.... Might be expected behaviour..."
@@ -575,6 +575,8 @@ class ProxyTCPHandler(StreamRequestHandler):
             try:
                 if remote in r:
                     data = remote.recv(4096)
+                    if client.send(data) <= 0:
+                        break
                     self.logger.data(
                         f"{self.client_ip}:{self.client_port} "
                         f"<= {self.server_ip}:{self.server_port} "
@@ -583,8 +585,6 @@ class ProxyTCPHandler(StreamRequestHandler):
                         f" | B:{len(data)}",
                         SOCKS_VERSION_MAP[self.socks_version],
                     )
-                    if client.send(data) <= 0:
-                        break
             except SocketError as e:
                 if e.errno != errno.ECONNRESET:
                     raise  # Not error we are looking for
