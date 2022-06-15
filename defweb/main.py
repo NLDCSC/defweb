@@ -8,6 +8,7 @@ from http.server import HTTPServer
 from logging.config import dictConfig
 
 from defweb.common.constants import CERT_PATH, KEY_PATH, SIGNED_CERT_PATH
+from defweb.common.mapping_handlers import handler_mapping
 from defweb.common.pki import DefWebPKI
 from defweb.proxy import DefWebProxy
 from defweb.reverse_proxy import DefWebReverseProxy
@@ -121,7 +122,9 @@ def main():
         "--rev_proxy", action="store_true", help="start reverse TCP proxy"
     )
     rev_proxy_grp.add_argument(
-        "--rev_proxy_tls", action="store_true", help="add TLS support to the reverse TCP proxy"
+        "--rev_proxy_tls",
+        action="store_true",
+        help="add TLS support to the reverse TCP proxy",
     )
     rev_proxy_grp.add_argument(
         "-ca",
@@ -154,6 +157,12 @@ def main():
         metavar="MIDDLEWARES",
         default=None,
         help="comma seperated middlewares to use",
+    )
+    rev_proxy_grp.add_argument(
+        "--protocol",
+        metavar="PROXIED_PROTOCOL",
+        default=None,
+        help="provide the protocol of the service we are proxying for",
     )
 
     args = parser.parse_args()
@@ -300,12 +309,18 @@ def main():
                 f"Running DefWebReverseProxy: {DefWebReverseProxy.server_version}"
             )
 
+            handler = "default"
+
+            if args.protocol:
+                handler = args.protocol.lower()
+
             rev_proxy_server = DefWebReverseProxy(
                 socketaddress=(host, port),
                 proxied_ip=args.proxied_ip,
                 proxied_port=args.proxied_port,
                 proxied_tls=args.ptls,
-                middlewares=args.middlewares.split(","),
+                middlewares=args.middlewares.lower().split(","),
+                request_handler_class=handler_mapping[handler],
             ).init_proxy()
 
             if args.rev_proxy_tls:

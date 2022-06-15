@@ -1,4 +1,5 @@
 from defweb.middlewares import *
+from defweb.objects.middlewarebase import DefWebMiddlewareBase
 
 _local_vars = locals()
 
@@ -16,14 +17,23 @@ class MiddlewareLoader(object):
             if not middleware.startswith("_")
             and not middleware.startswith("MiddlewareLoader")
             and not middleware.startswith("MiddlewareNotFound")
+            and not middleware.startswith("DefWebMiddlewareBase")
         ]
 
         middlewares = {}
 
         for each in mods:
             for key, val in each.items():
-                middleware_class = [run for run in dir(val) if run.endswith("Middleware")]
-                middlewares[key] = getattr(val, middleware_class[0])
+                middleware_class = [
+                    run
+                    for run in dir(val)
+                    if run != "DefWebMiddlewareBase"
+                    and not run.startswith("__")
+                    and isinstance(getattr(val, run)(), DefWebMiddlewareBase)
+                ]
+                middlewares[
+                    getattr(val, middleware_class[0])().__class__.__name__.lower()
+                ] = getattr(val, middleware_class[0])
 
         self.middleware_choises = dict(middlewares)
 
@@ -35,4 +45,4 @@ class MiddlewareLoader(object):
             middleware = self.middleware_choises[name]
             return middleware
         except KeyError:
-            raise MiddlewareNotFound("Cannot find the requested runner!")
+            raise MiddlewareNotFound("Cannot find the requested middleware!")
