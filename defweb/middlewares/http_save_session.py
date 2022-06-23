@@ -14,12 +14,16 @@ class HttpSaveSession(DefWebMiddlewareBase):
         import hashlib
         import os
 
-        self.file_hash = hashlib.sha1(f"{self.client_ip, self.client_port}".encode("utf-8")).hexdigest()[:12]
+        self.file_hash = hashlib.sha1(
+            f"{self.client_ip, self.client_port}".encode("utf-8")
+        ).hexdigest()[:12]
 
         if not os.path.exists(os.path.join("/tmp", self.client_ip)):
             os.mkdir(os.path.join("/tmp", self.client_ip))
 
-        with open(os.path.join("/tmp", self.client_ip, f"http_session_{self.file_hash}"), "a+") as f:
+        with open(
+            os.path.join("/tmp", self.client_ip, f"http_session_{self.file_hash}"), "a+"
+        ) as f:
             f.write(self.data.decode("utf-8"))
 
         return True
