@@ -193,6 +193,9 @@ def main():
         print(__version__)
         exit(0)
 
+    if not os.path.exists("/tmp/defweb"):
+        os.mkdir("/tmp/defweb")
+
     logger.info(f"Defweb version: {__version__}")
 
     if args.port:
@@ -345,7 +348,7 @@ def main():
                     if result:
                         use_cert_path = SIGNED_CERT_PATH
 
-                if result:
+                if result and rev_proxy_server is not None:
                     rev_proxy_server.socket = ssl.wrap_socket(
                         rev_proxy_server.socket,
                         keyfile=use_key_path,

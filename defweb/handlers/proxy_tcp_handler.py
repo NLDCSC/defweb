@@ -9,6 +9,7 @@ import socket
 import struct
 from socket import error as SocketError
 from socketserver import StreamRequestHandler
+from typing import Tuple, List
 
 SOCKS_VERSION_MAP = {4: "SOCKSv4", 5: "SOCKSv5", 67: "HTTPS", 71: "HTTP"}
 
@@ -440,7 +441,7 @@ class ProxyTCPHandler(StreamRequestHandler):
             self.server.close_request(self.request)
 
     @staticmethod
-    def load_from_file(filename):
+    def load_from_file(filename: str) -> List[str]:
 
         with open(
             os.path.join(os.path.dirname(__file__), "sources/", filename), "r"
@@ -451,13 +452,13 @@ class ProxyTCPHandler(StreamRequestHandler):
 
         return data[:-1]
 
-    def generate_user_agent(self):
+    def generate_user_agent(self) -> str:
 
         user_agent = random.choice(self.user_agents_list)
 
         return user_agent
 
-    def rotate_user_agent(self, connection_bytes):
+    def rotate_user_agent(self, connection_bytes: bytes) -> bytes:
 
         connection_string = connection_bytes.decode("utf-8")
 
@@ -467,7 +468,7 @@ class ProxyTCPHandler(StreamRequestHandler):
 
         return altered_connection_string.encode("utf-8")
 
-    def parse_connection_string(self, data):
+    def parse_connection_string(self, data: str) -> Tuple[str, int]:
         try:
             first_line = data.split("\r\n")[0]
 
@@ -496,7 +497,9 @@ class ProxyTCPHandler(StreamRequestHandler):
         except Exception as err:
             self.logger.error(f"Error parsing connection_string, error --> {err}")
 
-    def http_exchange_loop(self, client, remote, connection_bytes):
+    def http_exchange_loop(
+        self, client: socket.socket, remote: socket.socket, connection_bytes: bytes
+    ) -> None:
 
         try:
             remote.send(connection_bytes)
@@ -538,7 +541,7 @@ class ProxyTCPHandler(StreamRequestHandler):
 
         self.logger.info("Forwarding requests ended!")
 
-    def exchange_loop(self, client, remote):
+    def exchange_loop(self, client: socket.socket, remote: socket.socket) -> None:
 
         while True:
 
@@ -589,7 +592,7 @@ class ProxyTCPHandler(StreamRequestHandler):
 
         self.logger.info("Forwarding requests ended!")
 
-    def get_available_methods(self, n):
+    def get_available_methods(self, n: int) -> dict:
         methods = {}
         for _ in range(n):
             type = struct.unpack("!B", self.connection.recv(1))
@@ -599,7 +602,7 @@ class ProxyTCPHandler(StreamRequestHandler):
                 methods[type] = "UNSUPPORTED"
         return methods
 
-    def verify_credentials(self):
+    def verify_credentials(self) -> bool:
         version = ord(self.connection.recv(1))
         assert version == 1
 
@@ -624,10 +627,12 @@ class ProxyTCPHandler(StreamRequestHandler):
         return False
 
     @staticmethod
-    def generate_failed_reply_4(error_number):
+    def generate_failed_reply_4(error_number: int) -> struct.pack:
         return struct.pack("!BBHI", 0, error_number, 0, 0)
 
-    def generate_failed_reply_5(self, address_type, error_number):
+    def generate_failed_reply_5(
+        self, address_type: str, error_number: str
+    ) -> struct.pack:
         return struct.pack(
             "!BBBBIH",
             int(self.socks_version),

@@ -18,11 +18,11 @@ class HttpSaveSession(DefWebMiddlewareBase):
             f"{self.client_ip, self.client_port}".encode("utf-8")
         ).hexdigest()[:12]
 
-        if not os.path.exists(os.path.join("/tmp", self.client_ip)):
-            os.mkdir(os.path.join("/tmp", self.client_ip))
+        if not os.path.exists(os.path.join("/tmp/defweb", self.client_ip)):
+            os.mkdir(os.path.join("/tmp/defweb", self.client_ip))
 
         with open(
-            os.path.join("/tmp", self.client_ip, f"http_session_{self.file_hash}"), "a+"
+            os.path.join("/tmp/defweb", self.client_ip, f"http_session_{self.file_hash}"), "a+"
         ) as f:
             f.write(self.data.decode("utf-8"))
 
