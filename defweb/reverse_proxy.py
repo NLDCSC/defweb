@@ -50,6 +50,7 @@ class DefWebReverseProxy(object):
 
     def init_proxy(self):
         try:
+            self.logger.info(f"Configured middlewares: {self.request_handler_class.middlewares}")
             self.logger.info(f"Using {self.request_handler_class} as request handler")
             self.rev_proxy_server = ThreadingTCPServer(
                 (self.hostname, int(self.port)), self.request_handler_class

@@ -9,8 +9,14 @@ class DefWebMiddlewareBase(ABC):
     __hook__ = "printers"
     __weight__ = 100
 
-    def __init__(self, data=None):
+    def __init__(self, data=None, **kwargs):
         self.data = data
+        self.kwargs = kwargs
+
+        if self.kwargs:
+            for each in self.kwargs:
+                setattr(self, each, self.kwargs[each])
+
         if not self.initialize():
             raise MiddlewareInitError(
                 f"{self.__class__.__name__} could not initialize successfully"
@@ -32,5 +38,7 @@ class DefWebMiddlewareBase(ABC):
 
         Should return True when data should be passed down the middlewares, False will stop the processing and
         will drop the data.
+
+        All imports required to execute this middleware should be imported in this method
         """
         return True

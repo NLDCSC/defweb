@@ -22,6 +22,8 @@ class ReverseProxyTCPHandler(StreamRequestHandler):
     middlewares = None
     middleware_loaded = None
 
+    protocol = "general"
+
     def __init__(self, request, client_address, server):
 
         self.logger = logging.getLogger(__name__)
@@ -43,6 +45,8 @@ class ReverseProxyTCPHandler(StreamRequestHandler):
         self.middlewares = ReverseProxyTCPHandler.middlewares
         self.middleware_loaded = ReverseProxyTCPHandler.middleware_loaded
 
+        self.protocol = ReverseProxyTCPHandler.protocol
+
     @staticmethod
     def default_to_regular(d):
         if isinstance(d, collections.defaultdict):
@@ -61,9 +65,17 @@ class ReverseProxyTCPHandler(StreamRequestHandler):
 
         for m in ml.middleware_choises:
             if m in needed_middleware:
-                configured_middlewares[ml.middleware_choises[m].__protocol__][
-                    ml.middleware_choises[m].__hook__
-                ][ml.middleware_choises[m].__weight__].append(ml.load_middleware(m))
+                if isinstance(ml.middleware_choises[m].__hook__, list):
+                    for h in ml.middleware_choises[m].__hook__:
+                        configured_middlewares[ml.middleware_choises[m].__protocol__][
+                            h
+                        ][ml.middleware_choises[m].__weight__].append(
+                            ml.load_middleware(m)
+                        )
+                elif isinstance(ml.middleware_choises[m].__hook__, str):
+                    configured_middlewares[ml.middleware_choises[m].__protocol__][
+                        ml.middleware_choises[m].__hook__
+                    ][ml.middleware_choises[m].__weight__].append(ml.load_middleware(m))
 
         ret_dict = collections.defaultdict(
             lambda: collections.defaultdict(lambda: collections.OrderedDict(list))
@@ -118,28 +130,29 @@ class ReverseProxyTCPHandler(StreamRequestHandler):
 
         self.server.close_request(self.request)
 
-    def handle_middleware(self, data, hook, protocol="general"):
+    def handle_middleware(self, data, hook, **kwargs):
 
         if self.middleware_loaded is not None:
-            try:
-                for weight, middleware_list in self.middleware_loaded[protocol][
-                    hook
-                ].items():
-                    for each_middleware in middleware_list:
-                        try:
-                            active_middleware = each_middleware(data)
-                            if not active_middleware.execute():
-                                self.logger.warning(
-                                    f"{active_middleware.__class__.__name__} drops data..."
-                                )
-                                return False
-                        except MiddlewareInitError as err:
-                            self.logger.error(f"{err}")
-                            pass
-            except KeyError:
-                # no middleware loaded for this hook
-                return True
-
+            # first execute protocol specific then execute general middlewares
+            for proto in [self.protocol, "general"]:
+                try:
+                    for weight, middleware_list in self.middleware_loaded[proto][
+                        hook
+                    ].items():
+                        for each_middleware in middleware_list:
+                            try:
+                                active_middleware = each_middleware(data, **kwargs)
+                                if not active_middleware.execute():
+                                    self.logger.warning(
+                                        f"{active_middleware.__class__.__name__} drops data..."
+                                    )
+                                    return False
+                            except MiddlewareInitError as err:
+                                self.logger.error(f"{err}")
+                                pass
+                except KeyError:
+                    # no middleware loaded for this hook, just continue
+                    continue
         return True
 
     def exchange_loop(self, client, remote):
