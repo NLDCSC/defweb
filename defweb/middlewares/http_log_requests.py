@@ -25,7 +25,8 @@ class HttpLogRequests(DefWebMiddlewareBase):
         data_list = self.parse_connection_string()
 
         with open(
-            os.path.join("/tmp/defweb", "http_log_requests", f"request_logger.txt"), "a+"
+            os.path.join("/tmp/defweb", "http_log_requests", f"request_logger.txt"),
+            "a+",
         ) as f:
             f.write(
                 f"{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} request={data_list[0]}\t"

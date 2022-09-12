@@ -22,7 +22,10 @@ class HttpSaveSession(DefWebMiddlewareBase):
             os.mkdir(os.path.join("/tmp/defweb", self.client_ip))
 
         with open(
-            os.path.join("/tmp/defweb", self.client_ip, f"http_session_{self.file_hash}"), "a+"
+            os.path.join(
+                "/tmp/defweb", self.client_ip, f"http_session_{self.file_hash}"
+            ),
+            "a+",
         ) as f:
             f.write(self.data.decode("utf-8"))
 

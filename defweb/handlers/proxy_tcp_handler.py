@@ -216,7 +216,8 @@ class ProxyTCPHandler(StreamRequestHandler):
                         chosen_method = 2
                 else:
                     if 2 in methods.keys():
-                        chosen_method = 2
+                        # don't force authentication so set to 'NO AUTH'
+                        chosen_method = 0
                     elif 0 in methods.keys():
                         chosen_method = 0
                     else:
