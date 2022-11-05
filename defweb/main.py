@@ -291,6 +291,7 @@ def main():
                     keyfile=use_key_path,
                     certfile=use_cert_path,
                     server_side=True,
+                    ssl_version=ssl.PROTOCOL_TLSv1_2,
                 )
             else:
                 logger.error(f"Certificate creation produced an error: {result}")
@@ -354,6 +355,7 @@ def main():
                         keyfile=use_key_path,
                         certfile=use_cert_path,
                         server_side=True,
+                        ssl_version=ssl.PROTOCOL_TLSv1_2,
                     )
                 else:
                     logger.error(f"Certificate creation produced an error: {result}")

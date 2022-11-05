@@ -104,7 +104,9 @@ class ReverseProxyTCPHandler(StreamRequestHandler):
 
                 if self.proxied_tls:
                     self.remote = ssl.wrap_socket(
-                        self.remote, suppress_ragged_eofs=True
+                        self.remote,
+                        suppress_ragged_eofs=True,
+                        ssl_version=ssl.PROTOCOL_TLSv1_2,
                     )
 
                 self.remote.connect((self.proxied_ip, self.proxied_port))
